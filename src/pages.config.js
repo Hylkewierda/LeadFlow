@@ -50,6 +50,7 @@
 import ClientDatabase from './pages/ClientDatabase';
 import Home from './pages/Home';
 import InteractionsReasoning from './pages/InteractionsReasoning';
+import MaybeLeads from './pages/MaybeLeads';
 import SendMessage from './pages/SendMessage';
 import WorkflowActivated from './pages/WorkflowActivated';
 import __Layout from './Layout.jsx';
@@ -59,6 +60,7 @@ export const PAGES = {
     "ClientDatabase": ClientDatabase,
     "Home": Home,
     "InteractionsReasoning": InteractionsReasoning,
+    "MaybeLeads": MaybeLeads,
     "SendMessage": SendMessage,
     "WorkflowActivated": WorkflowActivated,
 }

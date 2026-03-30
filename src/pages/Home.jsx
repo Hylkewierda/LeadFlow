@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "../utils";
-import { Button } from "@/components/ui/button";
-import { ExternalLink, Loader2, Zap, Lock } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { ExternalLink, Loader2, Zap, Lock, Activity } from "lucide-react";
+import { motion } from "framer-motion";
 import { useWorkflow } from "../components/WorkflowContext";
 
 const WEBHOOK_URL = "https://hylkewnl.app.n8n.cloud/webhook/b77e71d3-03ea-4a2a-8fba-f3c3ff857b07";
@@ -16,40 +15,26 @@ const WORKFLOW_MODES = [
   { id: "CommentPosts", storageId: "comment_posts", label: "Comment Posts", description: "Comment engagement", sheetUrl: "https://docs.google.com/spreadsheets/d/1y4gPlMXPCSn54FyRc3vpMSDfI-L46LqlHaxmOZacJZo" },
 ];
 
-// Helper functions voor dag tracking
-const getCurrentDate = (date) => {
-  const d = new Date(date);
+const getCurrentDate = () => {
+  const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
 
-const getStorageKey = (storageId) => {
-  const currentDate = getCurrentDate(new Date());
-  return `limiter_${storageId}_${currentDate}`;
-};
-
-const getUsageCount = (storageId) => {
-  const key = getStorageKey(storageId);
-  const count = localStorage.getItem(key);
-  return count ? parseInt(count, 10) : 0;
-};
-
+const getStorageKey = (storageId) => `limiter_${storageId}_${getCurrentDate()}`;
+const getUsageCount = (storageId) => parseInt(localStorage.getItem(getStorageKey(storageId)) || "0", 10);
 const incrementUsage = (storageId) => {
-  const key = getStorageKey(storageId);
-  const current = getUsageCount(storageId);
-  localStorage.setItem(key, String(current + 1));
+  localStorage.setItem(getStorageKey(storageId), String(getUsageCount(storageId) + 1));
 };
 
 const cleanupOldDays = () => {
-  const currentDate = getCurrentDate(new Date());
+  const currentDate = getCurrentDate();
   const keysToRemove = [];
-  
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);
-    if (key && key.startsWith('limiter_') && !key.includes(currentDate)) {
+    if (key?.startsWith('limiter_') && !key.includes(currentDate)) {
       keysToRemove.push(key);
     }
   }
-  
   keysToRemove.forEach(key => localStorage.removeItem(key));
 };
 
@@ -63,8 +48,6 @@ export default function Home() {
 
   useEffect(() => {
     cleanupOldDays();
-    
-    // Load usage counts
     const counts = {};
     WORKFLOW_MODES.forEach(mode => {
       counts[mode.storageId] = getUsageCount(mode.storageId);
@@ -76,9 +59,8 @@ export default function Home() {
     const workflowMode = WORKFLOW_MODES.find(m => m.id === mode);
     const currentUsage = getUsageCount(workflowMode.storageId);
 
-    // Check if limit is reached
     if (currentUsage >= DAILY_LIMIT) {
-      setError(`⛔ Dagelijks limiet bereikt voor ${workflowMode.label} (${DAILY_LIMIT}/${DAILY_LIMIT}). Probeer het morgen opnieuw.`);
+      setError(`Dagelijks limiet bereikt voor ${workflowMode.label} (${DAILY_LIMIT}/${DAILY_LIMIT}).`);
       return;
     }
 
@@ -87,36 +69,30 @@ export default function Home() {
     setError(null);
     setWarningMessage(null);
 
-    // Show warning for run 4 and 5
     if (currentUsage === DAILY_LIMIT - 2) {
-      setWarningMessage(`⚠️ Let op: je hebt nog 1 run over vandaag voor ${workflowMode.label}.`);
+      setWarningMessage(`Nog 1 run over vandaag voor ${workflowMode.label}`);
     } else if (currentUsage === DAILY_LIMIT - 1) {
-      setWarningMessage(`⚠️ Dit is je laatste run vandaag voor ${workflowMode.label}.`);
+      setWarningMessage(`Laatste run vandaag voor ${workflowMode.label}`);
     }
 
     try {
       const response = await fetch(WEBHOOK_URL, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ mode }),
       });
 
-      if (!response.ok) {
-        throw new Error("Workflow kon niet worden gestart");
-      }
+      if (!response.ok) throw new Error("Workflow kon niet worden gestart");
 
-      // Increment usage count
       incrementUsage(workflowMode.storageId);
       setUsageCounts(prev => ({
         ...prev,
         [workflowMode.storageId]: currentUsage + 1
       }));
 
-      // Navigate to WorkflowActivated page on success
       navigate(createPageUrl("WorkflowActivated"));
-    } catch (err) {
+    } catch {
+      endWorkflow("");
       setError("Er ging iets mis. Controleer de webhook URL.");
     } finally {
       setIsLoading(null);
@@ -124,138 +100,153 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center p-6">
-      <div className="w-full max-w-md flex-1 flex flex-col justify-center">
-        {/* Logo */}
-        <motion.div 
-          initial={{ opacity: 0, y: -20 }}
+    <div className="flex flex-col items-center px-4 sm:px-6 pt-6 pb-8">
+      <div className="w-full max-w-lg">
+        {/* Header */}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex justify-center mb-16"
+          transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+          className="mb-8"
         >
-          <img 
-            src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/user_68f11e15150826cffc22f69c/d719759d4_Actuals.png" 
-            alt="Actuals" 
-            className="h-12 object-contain"
-          />
+          <h1 className="text-[26px] font-bold tracking-tight text-foreground">
+            Lead Qualifier
+          </h1>
+          <p className="text-muted-foreground text-[13px] mt-1">
+            Selecteer een workflow om te starten
+          </p>
         </motion.div>
 
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-        >
-          {/* Header */}
-          <div className="text-center mb-10">
-            <h1 className="text-2xl font-semibold text-black mb-2">Lead Qualifier</h1>
-            <p className="text-black/60 text-sm">Selecteer een workflow om te starten</p>
-          </div>
+        {/* Warning */}
+        {warningMessage && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-5 px-4 py-3 bg-amber-50/80 border border-amber-200/60 rounded-2xl"
+          >
+            <p className="text-amber-700 text-[13px] font-medium">{warningMessage}</p>
+          </motion.div>
+        )}
 
-          {/* Warning Message */}
-          {warningMessage && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="mb-6 p-4 bg-orange-50 border border-orange-200 rounded-xl text-center"
-            >
-              <p className="text-orange-700 text-sm font-medium">{warningMessage}</p>
-            </motion.div>
-          )}
+        {/* Workflow cards */}
+        <div className="space-y-3">
+          {WORKFLOW_MODES.map((mode, index) => {
+            const usage = usageCounts[mode.storageId] || 0;
+            const isLimitReached = usage >= DAILY_LIMIT;
+            const isDisabled = isLoading !== null || isLimitReached || workflowRunning;
+            const progress = (usage / DAILY_LIMIT) * 100;
 
-          {/* Workflow Buttons */}
-          <div className="space-y-4">
-            {WORKFLOW_MODES.map((mode, index) => {
-              const usage = usageCounts[mode.storageId] || 0;
-              const isLimitReached = usage >= DAILY_LIMIT;
-              const isDisabled = isLoading !== null || isLimitReached || workflowRunning;
-              
-              return (
-                <motion.div
-                  key={mode.id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                >
-                  <div className="flex gap-2">
-                    <Button
-                      onClick={() => triggerWorkflow(mode.id)}
-                      disabled={isDisabled}
-                      className={`flex-1 h-16 rounded-xl flex items-center justify-between px-6 group transition-all duration-300 ${
-                        isLimitReached || workflowRunning
-                          ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                          : 'bg-black hover:bg-black/90 text-white hover:translate-x-1'
-                      }`}
-                    >
-                      <div className="flex flex-col items-start">
-                        <span className="font-medium text-base">{mode.label}</span>
-                        <span className={`text-xs ${isLimitReached ? 'text-gray-400' : 'text-white/60'}`}>
-                          {mode.description}
-                        </span>
+            return (
+              <motion.div
+                key={mode.id}
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.08, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+              >
+                <div className="flex gap-2.5">
+                  {/* Main workflow button */}
+                  <button
+                    onClick={() => triggerWorkflow(mode.id)}
+                    disabled={isDisabled}
+                    className={`flex-1 glass-card rounded-2xl p-4 text-left transition-all duration-300 group ${
+                      isDisabled
+                        ? 'opacity-50 cursor-not-allowed'
+                        : 'hover:shadow-lg hover:scale-[1.01] active:scale-[0.99] cursor-pointer'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-3">
+                      <div>
+                        <h3 className="text-[15px] font-semibold text-foreground">{mode.label}</h3>
+                        <p className="text-[12px] text-muted-foreground mt-0.5">{mode.description}</p>
                       </div>
-                      {isLimitReached ? (
-                        <Lock className="w-5 h-5" />
-                      ) : isLoading === mode.id ? (
-                        <Loader2 className="w-5 h-5 animate-spin" />
-                      ) : (
-                        <Zap className="w-5 h-5 text-[#00FF33] opacity-0 group-hover:opacity-100 transition-opacity" />
-                      )}
-                    </Button>
-                    {mode.sheetUrl && (
-                      <a
-                        href={mode.sheetUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="w-16 h-16 bg-[#00FF33] hover:bg-[#00FF33]/80 rounded-xl flex items-center justify-center transition-all duration-300 hover:scale-105"
-                      >
-                        <ExternalLink className="w-5 h-5 text-black" />
-                      </a>
-                    )}
-                  </div>
-                  <div className="mt-1.5 ml-1 text-xs text-black/40">
-                    {usage}/{DAILY_LIMIT} gebruikt vandaag
-                  </div>
-                </motion.div>
-              );
-            })}
-          </div>
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-300 ${
+                        isLimitReached
+                          ? 'bg-muted'
+                          : 'bg-foreground/[0.06] group-hover:bg-accent group-hover:accent-glow'
+                      }`}>
+                        {isLimitReached ? (
+                          <Lock className="w-4 h-4 text-muted-foreground" />
+                        ) : isLoading === mode.id ? (
+                          <Loader2 className="w-4 h-4 animate-spin text-foreground" />
+                        ) : (
+                          <Zap className={`w-4 h-4 transition-colors duration-300 ${
+                            isDisabled ? 'text-muted-foreground' : 'text-foreground/60 group-hover:text-white'
+                          }`} />
+                        )}
+                      </div>
+                    </div>
 
-          {/* Active Workflow Message */}
-          {workflowRunning && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="mt-4 p-4 bg-orange-50 border border-orange-200 rounded-xl text-center"
-            >
-              <p className="text-orange-700 text-sm font-medium">⏳ {activeWorkflowName} is actief. Wacht tot deze klaar is.</p>
+                    {/* Progress bar */}
+                    <div className="flex items-center gap-2.5">
+                      <div className="flex-1 h-1.5 bg-foreground/[0.06] rounded-full overflow-hidden">
+                        <motion.div
+                          className={`h-full rounded-full ${
+                            isLimitReached ? 'bg-destructive/60' : 'bg-accent'
+                          }`}
+                          initial={{ width: 0 }}
+                          animate={{ width: `${progress}%` }}
+                          transition={{ delay: index * 0.08 + 0.3, duration: 0.6, ease: "easeOut" }}
+                        />
+                      </div>
+                      <span className="text-[11px] font-medium text-muted-foreground tabular-nums">
+                        {usage}/{DAILY_LIMIT}
+                      </span>
+                    </div>
+                  </button>
+
+                  {/* Sheet link */}
+                  {mode.sheetUrl && (
+                    <a
+                      href={mode.sheetUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-14 glass-card rounded-2xl flex items-center justify-center transition-all duration-300 hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] group/link"
+                    >
+                      <ExternalLink className="w-4 h-4 text-muted-foreground group-hover/link:text-accent transition-colors" />
+                    </a>
+                  )}
+                </div>
+              </motion.div>
+            );
+          })}
+        </div>
+
+        {/* Active workflow banner */}
+        {workflowRunning && (
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mt-5 glass-card rounded-2xl p-4"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-xl bg-accent/10 flex items-center justify-center">
+                <Activity className="w-4 h-4 text-accent animate-pulse" />
+              </div>
+              <div className="flex-1">
+                <p className="text-[13px] font-semibold text-foreground">{activeWorkflowName} is actief</p>
+                <p className="text-[11px] text-muted-foreground">Wacht tot deze klaar is</p>
+              </div>
               <button
-                onClick={() => { endWorkflow(""); }}
-                className="mt-3 text-xs text-orange-500 hover:text-orange-700 underline underline-offset-2 transition-colors"
+                onClick={() => endWorkflow("")}
+                className="text-[11px] font-medium text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors"
               >
                 Reset
               </button>
-            </motion.div>
-          )}
+            </div>
+          </motion.div>
+        )}
 
-          {/* Error Message */}
-          {error && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="mt-6 p-4 bg-red-50 border border-red-200 rounded-xl text-center"
-            >
-              <p className="text-red-600 text-sm">{error}</p>
-            </motion.div>
-          )}
-        </motion.div>
+        {/* Error */}
+        {error && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mt-5 px-4 py-3 bg-destructive/8 border border-destructive/15 rounded-2xl"
+          >
+            <p className="text-destructive text-[13px] font-medium">{error}</p>
+          </motion.div>
+        )}
       </div>
-
-      {/* Footer */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.8 }}
-        className="w-full text-center pb-6 text-black/30 text-xs"
-      >
-        For Actuals
-      </motion.div>
     </div>
   );
 }

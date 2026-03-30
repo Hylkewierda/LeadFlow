@@ -1,6 +1,5 @@
 import React, { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { ExternalLink, Loader2, CheckCircle2, Send } from "lucide-react";
+import { ExternalLink, Loader2, CheckCircle2, Send, FileSpreadsheet } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 const WEBHOOK_URL = "https://hylkewnl.app.n8n.cloud/webhook/d95c131d-80dd-4b96-9d1b-916bb82e7390";
@@ -18,129 +17,116 @@ export default function SendMessage() {
     try {
       const response = await fetch(WEBHOOK_URL, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "send_message" }),
       });
 
-      if (!response.ok) {
-        throw new Error("Bericht kon niet worden verzonden");
-      }
-
+      if (!response.ok) throw new Error("Bericht kon niet worden verzonden");
       setIsComplete(true);
-    } catch (err) {
+    } catch {
       setError("Er ging iets mis. Controleer de webhook URL.");
     } finally {
       setIsLoading(false);
     }
   };
 
-  const resetState = () => {
-    setIsComplete(false);
-    setError(null);
-  };
-
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-6">
-      <div className="w-full max-w-md">
-        {/* Logo */}
-        <motion.div 
-          initial={{ opacity: 0, y: -20 }}
+    <div className="flex flex-col items-center px-4 sm:px-6 pt-6 pb-8">
+      <div className="w-full max-w-lg">
+        {/* Header */}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex justify-center mb-16"
+          transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+          className="mb-8"
         >
-          <img 
-            src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/user_68f11e15150826cffc22f69c/d719759d4_Actuals.png" 
-            alt="Actuals" 
-            className="h-12 object-contain"
-          />
+          <h1 className="text-[26px] font-bold tracking-tight text-foreground">
+            Validated Leads
+          </h1>
+          <p className="text-muted-foreground text-[13px] mt-1">
+            Verstuur berichten of bekijk de lijst
+          </p>
         </motion.div>
 
         <AnimatePresence mode="wait">
           {!isComplete ? (
             <motion.div
-              key="buttons"
+              key="actions"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              exit={{ opacity: 0, y: -20 }}
+              exit={{ opacity: 0, y: -12 }}
+              className="space-y-3"
             >
-              {/* Header */}
-              <div className="text-center mb-10">
-                <h1 className="text-2xl font-semibold text-black mb-2">Validated Leads</h1>
-                <p className="text-black/60 text-sm">Verstuur berichten of bekijk de lijst</p>
-              </div>
+              {/* HubSpot link */}
+              <motion.a
+                href="https://app.hubspot.com/contacts/7061944/objects/0-1/views/all/list"
+                target="_blank"
+                rel="noopener noreferrer"
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.08 }}
+                className="glass-card rounded-2xl p-4 flex items-center gap-4 transition-all duration-300 hover:shadow-lg hover:scale-[1.01] active:scale-[0.99] group cursor-pointer"
+              >
+                <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center">
+                  <ExternalLink className="w-4.5 h-4.5 text-accent" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-[15px] font-semibold text-foreground">Bekijk in HubSpot</h3>
+                  <p className="text-[12px] text-muted-foreground">Open de validated leads</p>
+                </div>
+                <ExternalLink className="w-4 h-4 text-muted-foreground/30 group-hover:text-accent transition-colors" />
+              </motion.a>
 
-              {/* Buttons */}
-              <div className="space-y-3">
-                <motion.div
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                >
-                  <a
-                    href="https://app.hubspot.com/contacts/7061944/objects/0-1/views/all/list"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-full h-16 bg-[#00FF33] hover:bg-[#00FF33]/90 text-black rounded-xl flex items-center justify-between px-6 group transition-all duration-300 hover:translate-x-1"
-                  >
-                    <div className="flex flex-col items-start">
-                      <span className="font-medium text-base">Bekijk in HubSpot</span>
-                      <span className="text-xs text-black/60">Open de validated leads</span>
-                    </div>
-                    <ExternalLink className="w-5 h-5 text-black opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </a>
-                </motion.div>
+              {/* Send message button */}
+              <motion.button
+                onClick={sendMessage}
+                disabled={isLoading}
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.16 }}
+                className="w-full glass-card rounded-2xl p-4 flex items-center gap-4 transition-all duration-300 hover:shadow-lg hover:scale-[1.01] active:scale-[0.99] group cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed text-left"
+              >
+                <div className="w-10 h-10 rounded-xl bg-foreground/[0.06] flex items-center justify-center group-hover:bg-accent group-hover:accent-glow transition-all duration-300">
+                  {isLoading ? (
+                    <Loader2 className="w-4.5 h-4.5 animate-spin text-foreground" />
+                  ) : (
+                    <Send className="w-4.5 h-4.5 text-foreground/60 group-hover:text-white transition-colors" />
+                  )}
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-[15px] font-semibold text-foreground">Create message</h3>
+                  <p className="text-[12px] text-muted-foreground">Verstuur gepersonaliseerde berichten</p>
+                </div>
+              </motion.button>
 
-                <motion.div
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.1 }}
-                >
-                  <Button
-                    onClick={sendMessage}
-                    disabled={isLoading}
-                    className="w-full h-16 bg-black hover:bg-black/90 text-white rounded-xl flex items-center justify-between px-6 group transition-all duration-300 hover:translate-x-1"
-                  >
-                    <div className="flex flex-col items-start">
-                      <span className="font-medium text-base">Create message</span>
-                      <span className="text-xs text-white/60">Verstuur gepersonaliseerde berichten naar nieuwe leads</span>
-                    </div>
-                    {isLoading ? (
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                    ) : (
-                      <Send className="w-5 h-5 text-[#00FF33] opacity-0 group-hover:opacity-100 transition-opacity" />
-                    )}
-                  </Button>
-                </motion.div>
+              {/* View leads sheet */}
+              <motion.a
+                href="https://docs.google.com/spreadsheets/d/1d5R3qaMzAZO5yee40JKzyNpDRGv0g2BhR9Zlq0k6-9g/edit?gid=0#gid=0"
+                target="_blank"
+                rel="noopener noreferrer"
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.24 }}
+                className="glass-card rounded-2xl p-4 flex items-center gap-4 transition-all duration-300 hover:shadow-lg hover:scale-[1.01] active:scale-[0.99] group cursor-pointer"
+              >
+                <div className="w-10 h-10 rounded-xl bg-foreground/[0.06] flex items-center justify-center">
+                  <FileSpreadsheet className="w-4.5 h-4.5 text-foreground/60" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-[15px] font-semibold text-foreground">View leads</h3>
+                  <p className="text-[12px] text-muted-foreground">Bekijk de verzendlijst</p>
+                </div>
+                <ExternalLink className="w-4 h-4 text-muted-foreground/30 group-hover:text-accent transition-colors" />
+              </motion.a>
 
-                <motion.div
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.2 }}
-                >
-                  <a
-                    href="https://docs.google.com/spreadsheets/d/1d5R3qaMzAZO5yee40JKzyNpDRGv0g2BhR9Zlq0k6-9g/edit?gid=0#gid=0"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-full h-16 bg-black hover:bg-black/90 text-white rounded-xl flex items-center justify-between px-6 group transition-all duration-300 hover:translate-x-1"
-                  >
-                    <div className="flex flex-col items-start">
-                      <span className="font-medium text-base">View leads</span>
-                      <span className="text-xs text-white/60">Bekijk de verzendlijst</span>
-                    </div>
-                    <ExternalLink className="w-5 h-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </a>
-                </motion.div>
-              </div>
-
-              {/* Error Message */}
+              {/* Error */}
               {error && (
                 <motion.div
-                  initial={{ opacity: 0, y: 10 }}
+                  initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="mt-6 p-4 bg-red-50 border border-red-200 rounded-xl text-center"
+                  className="px-4 py-3 bg-destructive/8 border border-destructive/15 rounded-2xl"
                 >
-                  <p className="text-red-600 text-sm">{error}</p>
+                  <p className="text-destructive text-[13px] font-medium">{error}</p>
                 </motion.div>
               )}
             </motion.div>
@@ -149,46 +135,34 @@ export default function SendMessage() {
               key="success"
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0 }}
-              className="text-center"
+              className="text-center pt-12"
             >
-              {/* Success Icon */}
               <motion.div
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ type: "spring", stiffness: 200, delay: 0.2 }}
-                className="w-20 h-20 bg-[#00FF33] rounded-full flex items-center justify-center mx-auto mb-8"
+                initial={{ scale: 0, rotate: -20 }}
+                animate={{ scale: 1, rotate: 0 }}
+                transition={{ type: "spring", stiffness: 180, damping: 14, delay: 0.1 }}
+                className="w-20 h-20 rounded-[22px] bg-accent flex items-center justify-center mx-auto mb-8 accent-glow"
               >
-                <CheckCircle2 className="w-10 h-10 text-black" />
+                <CheckCircle2 className="w-9 h-9 text-white" strokeWidth={2} />
               </motion.div>
 
-              <h2 className="text-2xl font-semibold text-black mb-2">Bericht Verzonden</h2>
-              <p className="text-black/60 text-sm mb-10">Je bericht is succesvol verstuurd</p>
+              <h2 className="text-[22px] font-bold tracking-tight text-foreground mb-2">
+                Bericht verzonden
+              </h2>
+              <p className="text-muted-foreground text-[13px] mb-10">
+                Je bericht is succesvol verstuurd
+              </p>
 
-              {/* Back Button */}
-              <motion.button
-                onClick={resetState}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.6 }}
-                className="mt-8 text-black/50 hover:text-black text-sm underline underline-offset-4 transition-colors"
+              <button
+                onClick={() => { setIsComplete(false); setError(null); }}
+                className="text-[13px] font-medium text-muted-foreground hover:text-foreground underline underline-offset-4 transition-colors"
               >
                 Nieuw bericht versturen
-              </motion.button>
+              </button>
             </motion.div>
           )}
         </AnimatePresence>
       </div>
-
-      {/* Footer */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.8 }}
-        className="absolute bottom-6 text-black/30 text-xs"
-      >
-        For Actuals
-      </motion.div>
     </div>
   );
 }

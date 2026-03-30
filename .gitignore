@@ -28,3 +28,8 @@ dist-ssr
 *.sw?
 
 .env
+.vercel
+
+# AutoResearch
+autoresearch/.env
+autoresearch/results/
