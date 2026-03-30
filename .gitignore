@@ -32,4 +32,7 @@ dist-ssr
 
 # AutoResearch
 autoresearch/.env
-autoresearch/results/
+autoresearch/__pycache__/
+autoresearch/results/*
+!autoresearch/results/ground_truth_cache.json
+!autoresearch/results/experiment_log.csv

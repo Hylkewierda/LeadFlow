@@ -1,0 +1,6 @@
+timestamp,iteration,f1,precision,recall,accuracy,tp,fp,tn,fn,change_summary,kept
+2026-03-30T01:00:00,0,0.065,0.667,0.034,0.681,2,1,122,57,baseline (original prompt with strict ICP scoring),true
+2026-03-30T01:10:00,1,0.088,0.333,0.051,0.659,3,6,117,56,lowered thresholds and defaults,true
+2026-03-30T01:20:00,2,0.492,0.356,0.797,0.467,47,85,38,12,finance-title-first approach with threshold 55,true
+2026-03-30T01:30:00,3,0.495,0.540,0.458,0.714,27,23,100,32,win-rate-weighted scoring with threshold 42,false
+2026-03-30T01:40:00,4,0.605,0.476,0.831,0.648,49,54,69,10,multi-factor scoring (title 40% industry 25% company 20% geo 15%) threshold 50,true
