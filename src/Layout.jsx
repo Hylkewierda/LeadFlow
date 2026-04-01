@@ -1,7 +1,7 @@
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "./utils";
-import { LogOut, Home, MessageSquare, Users, BarChart3, HelpCircle } from "lucide-react";
+import { LogOut, Home, MessageSquare, Users, BarChart3, HelpCircle, BookOpen } from "lucide-react";
 import { useAuth } from "@/lib/AuthContext";
 import { WorkflowProvider } from "./components/WorkflowContext";
 import { Toaster } from "@/components/ui/sonner";
@@ -12,6 +12,7 @@ const NAV_ITEMS = [
   { key: "MaybeLeads", label: "Maybe", icon: HelpCircle },
   { key: "SendMessage", label: "Leads", icon: MessageSquare },
   { key: "ClientDatabase", label: "Database", icon: Users },
+  { key: "Guide", label: "Guide", icon: BookOpen },
 ];
 
 export default function Layout({ children, currentPageName }) {
@@ -29,13 +30,13 @@ export default function Layout({ children, currentPageName }) {
 
         {/* Top bar */}
         <header className="sticky top-0 z-50 w-full">
-          <div className="mx-auto max-w-2xl px-4 sm:px-6">
+          <div className="px-8 sm:px-10">
             <div className="flex h-16 items-center justify-between">
               {/* Logo */}
               <img
-                src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/user_68f11e15150826cffc22f69c/d719759d4_Actuals.png"
-                alt="Actuals"
-                className="h-7 object-contain"
+                src="/logo.png"
+                alt="LeadFlow"
+                className="h-14 object-contain rounded-xl"
               />
 
               {/* Logout */}

@@ -45,9 +45,9 @@ export default function Login() {
           {/* Logo */}
           <div className="flex justify-center mb-10">
             <img
-              src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/user_68f11e15150826cffc22f69c/d719759d4_Actuals.png"
-              alt="Actuals"
-              className="h-10 object-contain"
+              src="/logo.png"
+              alt="LeadFlow"
+              className="h-28 object-contain rounded-2xl"
             />
           </div>
 
