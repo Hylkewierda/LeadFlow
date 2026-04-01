@@ -112,7 +112,10 @@ export default function Home() {
           <h1 className="text-[26px] font-bold tracking-tight text-foreground">
             Lead Qualifier
           </h1>
-          <p className="text-muted-foreground text-[13px] mt-1">
+          <p className="text-muted-foreground text-[14px] mt-1 italic">
+            From connection to qualified lead
+          </p>
+          <p className="text-muted-foreground text-[13px] mt-2">
             Selecteer een workflow om te starten
           </p>
         </motion.div>
