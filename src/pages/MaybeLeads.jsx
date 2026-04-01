@@ -2,8 +2,8 @@ import React from "react";
 import { ExternalLink, HelpCircle } from "lucide-react";
 import { motion } from "framer-motion";
 
-const REASONING_SHEET_URL =
-  "https://docs.google.com/spreadsheets/d/1rlLCDAC_Q4VxeNRsl0d8lmqT0DngttkUuIlqIgrRmBM/edit?gid=0#gid=0";
+const MAYBE_LEADS_SHEET_URL =
+  "https://docs.google.com/spreadsheets/d/1l3Ceas2AVQV-P3Cy6-j44WW3J84SvnbcVNhnsPgPsKU/edit?gid=0#gid=0";
 
 export default function MaybeLeads() {
   return (
@@ -53,7 +53,7 @@ export default function MaybeLeads() {
 
         {/* Sheet link */}
         <motion.a
-          href={REASONING_SHEET_URL}
+          href={MAYBE_LEADS_SHEET_URL}
           target="_blank"
           rel="noopener noreferrer"
           initial={{ opacity: 0, y: 16 }}
