@@ -19,22 +19,35 @@ async function getWorkspaceId() {
 export async function listCandidates({ statuses, search } = {}) {
   const supabase = browserSupabase();
   const workspaceId = await getWorkspaceId();
-  let query = supabase
-    .from("candidates")
-    .select("*")
-    .eq("workspace_id", workspaceId);
-  if (statuses && statuses.length > 0) {
-    query = query.in("status", statuses);
+
+  // PostgREST returns max 1000 rows per request; paginate via .range().
+  const PAGE_SIZE = 1000;
+  const rows = [];
+  let from = 0;
+  while (true) {
+    let query = supabase
+      .from("candidates")
+      .select("*")
+      .eq("workspace_id", workspaceId);
+    if (statuses && statuses.length > 0) {
+      query = query.in("status", statuses);
+    }
+    if (search && search.trim()) {
+      const needle = `%${search.trim()}%`;
+      query = query.or(
+        `linkedin_profile->>name.ilike.${needle},linkedin_profile->>role.ilike.${needle},linkedin_profile->>headline.ilike.${needle},linkedin_profile->>company.ilike.${needle}`,
+      );
+    }
+    const { data, error } = await query
+      .order("pre_score", { ascending: false })
+      .range(from, from + PAGE_SIZE - 1);
+    if (error) throw new Error(error.message);
+    const batch = data ?? [];
+    rows.push(...batch);
+    if (batch.length < PAGE_SIZE) break;
+    from += PAGE_SIZE;
   }
-  if (search && search.trim()) {
-    const needle = `%${search.trim()}%`;
-    query = query.or(
-      `linkedin_profile->>name.ilike.${needle},linkedin_profile->>role.ilike.${needle},linkedin_profile->>headline.ilike.${needle},linkedin_profile->>company.ilike.${needle}`,
-    );
-  }
-  const { data, error } = await query.order("pre_score", { ascending: false });
-  if (error) throw new Error(error.message);
-  return data ?? [];
+  return rows;
 }
 
 export async function qualifyCandidate(id) {
