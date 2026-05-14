@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "../utils";
-import { ExternalLink, Loader2, Zap, Lock, Activity } from "lucide-react";
+import { ExternalLink, Loader2, Zap, Lock, Activity, Radar } from "lucide-react";
 import { motion } from "framer-motion";
 import { useWorkflow } from "../components/WorkflowContext";
 
@@ -213,6 +213,26 @@ export default function Home() {
             );
           })}
         </div>
+
+        {/* Leadfinder card */}
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: WORKFLOW_MODES.length * 0.08, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+          className="mt-3 glass-card p-6 cursor-pointer accent-glow hover:scale-[1.01] transition-transform"
+          onClick={() => navigate(createPageUrl("Leadfinder"))}
+        >
+          <div className="flex items-start gap-3">
+            <Radar className="w-6 h-6 text-emerald-600 shrink-0 mt-0.5" />
+            <div>
+              <h3 className="text-lg font-semibold">Leadfinder</h3>
+              <p className="text-sm text-slate-500">
+                KB-gestuurde lead-discovery via LinkedIn.
+                Bekijk en triage candidates uit lopende runs.
+              </p>
+            </div>
+          </div>
+        </motion.div>
 
         {/* Active workflow banner */}
         {workflowRunning && (
