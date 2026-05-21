@@ -65,7 +65,26 @@ export async function qualifyCandidate(id) {
     .select()
     .single();
   if (error) throw new Error(error.message);
+
+  // Fire-and-forget: append the now-qualified lead to the overview Google Sheet.
+  // The export must never break the qualify action, so failures are logged, not thrown.
+  // The endpoint is idempotent (skips candidates whose exported_to_sheet_at is set).
+  exportQualifiedToSheet([id]).catch((e) => console.error("Sheet export failed:", e));
+
   return data;
+}
+
+async function exportQualifiedToSheet(candidateIds) {
+  const res = await fetch("/api/export-to-sheet", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ candidateIds }),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`Export failed: ${res.status} ${text}`);
+  }
+  return res.json();
 }
 
 export async function disqualifyCandidate(id, reason, note) {
