@@ -3,7 +3,7 @@ import path from "node:path";
 
 export default defineConfig({
   test: {
-    include: ["tests/**/*.test.js"],
+    include: ["tests/**/*.test.js", "src/**/*.test.js", "api/**/*.test.js"],
     environment: "node",
     globals: false,
   },
