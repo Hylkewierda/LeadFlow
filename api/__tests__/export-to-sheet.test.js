@@ -1,9 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 
 vi.mock("@supabase/supabase-js", () => ({ createClient: vi.fn(() => ({})) }));
-vi.mock("googleapis", () => ({
-  google: { auth: { GoogleAuth: vi.fn() }, sheets: vi.fn() },
-}));
 
 import handler, { buildRow, formatReasoning, disqualifierFlag } from "../export-to-sheet.js";
 
@@ -73,7 +70,7 @@ describe("formatReasoning", () => {
 });
 
 describe("buildRow", () => {
-  it("maps a candidate to the 8-column sheet row", () => {
+  it("maps a candidate to the row object (keys match the n8n -> Sheet mapping)", () => {
     const c = {
       linkedin_url: "https://linkedin.com/in/jane",
       linkedin_profile: { name: "Jane Doe", company: "ShopCo", role: "Controller" },
@@ -82,13 +79,22 @@ describe("buildRow", () => {
       signal_context: { posts: [{ title: "X", author: "Y", likes: 5, comments: 1 }] },
     };
     const row = buildRow(c);
-    expect(row).toHaveLength(8);
-    expect(row[0]).toBe("Jane Doe");
-    expect(row[1]).toBe("ShopCo");
-    expect(row[2]).toBe("Controller");
-    expect(row[3]).toBe("0.78");
-    expect(row[5]).toBe(""); // no disqualifier
-    expect(row[6]).toBe("https://linkedin.com/in/jane");
+    expect(Object.keys(row)).toEqual([
+      "naam",
+      "bedrijf",
+      "rol",
+      "pre_score",
+      "reasoning",
+      "disqualifier",
+      "linkedin_url",
+      "exported_at",
+    ]);
+    expect(row.naam).toBe("Jane Doe");
+    expect(row.bedrijf).toBe("ShopCo");
+    expect(row.rol).toBe("Controller");
+    expect(row.pre_score).toBe("0.78");
+    expect(row.disqualifier).toBe(""); // no disqualifier
+    expect(row.linkedin_url).toBe("https://linkedin.com/in/jane");
   });
   it("falls back to headline when role missing, and flags disqualifier", () => {
     const c = {
@@ -99,9 +105,9 @@ describe("buildRow", () => {
       signal_context: {},
     };
     const row = buildRow(c);
-    expect(row[2]).toBe("Financial Controller");
-    expect(row[3]).toBe("");
-    expect(row[5]).toBe("finance_dienstverlener");
+    expect(row.rol).toBe("Financial Controller");
+    expect(row.pre_score).toBe("");
+    expect(row.disqualifier).toBe("finance_dienstverlener");
   });
 });
 

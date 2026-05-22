@@ -1,9 +1,16 @@
 import { createClient } from "@supabase/supabase-js";
-import { google } from "googleapis";
 
-const SHEET_RANGE = "Sheet1!A:H";
 const SELECT_COLS =
   "id, linkedin_url, linkedin_profile, pre_score, signal_type, signal_context, status, exported_to_sheet_at";
+
+// n8n webhook that appends a row to the overview Google Sheet (Webhook → Google
+// Sheets "Append Row"). n8n holds the Google OAuth credential, so we never need
+// a static service-account key (blocked by the org policy
+// iam.disableServiceAccountKeyCreation). Env override allowed; sensible default
+// matches the existing hardcoded-webhook convention in src/pages/Home.jsx.
+const N8N_SHEET_WEBHOOK_URL =
+  process.env.N8N_SHEET_WEBHOOK_URL ||
+  "https://hylkewnl.app.n8n.cloud/webhook/c1ae03e8-fb61-4d53-99fa-827b0f50b448";
 
 // Disqualifier rules sourced from autoresearch/qualify_prompt.md DISQUALIFICATIE.
 const DISQUALIFIER_RULES = [
@@ -34,29 +41,19 @@ export function formatReasoning(candidate) {
   return "";
 }
 
+// Returns a flat object whose keys match the n8n webhook -> Google Sheets mapping.
 export function buildRow(candidate) {
   const p = candidate.linkedin_profile ?? {};
-  return [
-    p.name ?? "",
-    p.company ?? "",
-    p.role ?? p.headline ?? "",
-    candidate.pre_score != null ? String(candidate.pre_score) : "",
-    formatReasoning(candidate),
-    disqualifierFlag(p),
-    candidate.linkedin_url ?? "",
-    new Date().toISOString(),
-  ];
-}
-
-function sheetsClient() {
-  const auth = new google.auth.GoogleAuth({
-    credentials: {
-      client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
-      private_key: (process.env.GOOGLE_PRIVATE_KEY ?? "").replace(/\\n/g, "\n"),
-    },
-    scopes: ["https://www.googleapis.com/auth/spreadsheets"],
-  });
-  return google.sheets({ version: "v4", auth });
+  return {
+    naam: p.name ?? "",
+    bedrijf: p.company ?? "",
+    rol: p.role ?? p.headline ?? "",
+    pre_score: candidate.pre_score != null ? String(candidate.pre_score) : "",
+    reasoning: formatReasoning(candidate),
+    disqualifier: disqualifierFlag(p),
+    linkedin_url: candidate.linkedin_url ?? "",
+    exported_at: new Date().toISOString(),
+  };
 }
 
 export default async function handler(req, res) {
@@ -95,24 +92,29 @@ export default async function handler(req, res) {
     return res.status(200).json({ exported: 0, skipped: true });
   }
 
-  // Append rows to the Google Sheet
-  const rows = candidates.map(buildRow);
-  try {
-    const sheets = sheetsClient();
-    await sheets.spreadsheets.values.append({
-      spreadsheetId: process.env.GOOGLE_SHEET_ID,
-      range: SHEET_RANGE,
-      valueInputOption: "USER_ENTERED",
-      requestBody: { values: rows },
-    });
-  } catch (e) {
-    return res.status(502).json({ error: `Sheet append failed: ${(e?.message || "unknown").slice(0, 200)}` });
+  // POST one row per candidate to the n8n webhook (n8n appends to the Sheet).
+  // Mark only the rows that actually made it, so failures get retried by a later
+  // qualify/backfill instead of being silently lost.
+  const exportedIds = [];
+  const failed = [];
+  for (const c of candidates) {
+    try {
+      const resp = await fetch(N8N_SHEET_WEBHOOK_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(buildRow(c)),
+      });
+      if (!resp.ok) throw new Error(`n8n webhook returned ${resp.status}`);
+      exportedIds.push(c.id);
+    } catch (e) {
+      failed.push({ id: c.id, message: (e?.message || "unknown").slice(0, 200) });
+    }
   }
 
-  // Mark exported so re-qualify / backfill won't double-write
-  const now = new Date().toISOString();
-  const ids = candidates.map((c) => c.id);
-  await supabase.from("candidates").update({ exported_to_sheet_at: now }).in("id", ids);
+  if (exportedIds.length > 0) {
+    const now = new Date().toISOString();
+    await supabase.from("candidates").update({ exported_to_sheet_at: now }).in("id", exportedIds);
+  }
 
-  return res.status(200).json({ exported: candidates.length, ids });
+  return res.status(200).json({ exported: exportedIds.length, failed });
 }
