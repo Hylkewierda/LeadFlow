@@ -84,6 +84,7 @@ describe("buildRow", () => {
       "bedrijf",
       "rol",
       "pre_score",
+      "ai_score",
       "reasoning",
       "disqualifier",
       "linkedin_url",
@@ -121,5 +122,72 @@ describe("POST /api/export-to-sheet guards", () => {
     const res = makeRes();
     await handler({ method: "POST", body: {} }, res);
     expect(res.statusCode).toBe(400);
+  });
+});
+
+describe("buildRow with LLM fields", () => {
+  it("emits ai_score from llm_score (rounded) and uses llm_reasoning when llm_qualified_at is set", () => {
+    const candidate = {
+      linkedin_url: "https://linkedin.com/in/x",
+      linkedin_profile: { name: "Jane Doe", headline: "Controller @ ShopCo" },
+      signal_type: "content",
+      signal_context: {
+        posts: [{ title: "Month-end", author: "Sarah", likes: 10, comments: 2 }],
+      },
+      pre_score: 0.72,
+      llm_score: 82.4,
+      llm_reasoning:
+        "Fits ICP — recente engagement met Recharge-post over month-end automation.",
+      llm_qualified_at: "2026-05-24T12:00:00Z",
+    };
+    const row = buildRow(candidate);
+    expect(row.ai_score).toBe("82");
+    expect(row.reasoning).toBe(
+      "Fits ICP — recente engagement met Recharge-post over month-end automation.",
+    );
+  });
+
+  it("falls back to factual signal-context reasoning when llm_qualified_at is null", () => {
+    const candidate = {
+      linkedin_url: "https://linkedin.com/in/x",
+      linkedin_profile: { name: "Jane Doe", headline: "Controller @ ShopCo" },
+      signal_type: "content",
+      signal_context: {
+        posts: [
+          {
+            title: "Month-end",
+            author: "Sarah",
+            posted_at: "2026-05-15",
+            likes: 10,
+            comments: 2,
+          },
+        ],
+      },
+      pre_score: 0.72,
+      llm_score: null,
+      llm_reasoning: null,
+      llm_qualified_at: null,
+    };
+    const row = buildRow(candidate);
+    expect(row.ai_score).toBe("");
+    // formatReasoning includes the post title in its output for content signals.
+    expect(row.reasoning).toContain("Month-end");
+  });
+
+  it("leaves ai_score empty and falls back when only llm_score is present (no qualified_at)", () => {
+    const candidate = {
+      linkedin_url: "https://linkedin.com/in/x",
+      linkedin_profile: { name: "Jane Doe", headline: "Controller @ ShopCo" },
+      signal_type: "content",
+      signal_context: { posts: [] },
+      pre_score: 0.5,
+      llm_score: 50,
+      llm_reasoning: "partial",
+      llm_qualified_at: null,
+    };
+    const row = buildRow(candidate);
+    expect(row.ai_score).toBe("");
+    // Reasoning falls back when qualified_at is missing — even if reasoning is present.
+    expect(row.reasoning).not.toBe("partial");
   });
 });

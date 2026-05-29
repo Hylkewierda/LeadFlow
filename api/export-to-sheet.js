@@ -1,7 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 
 const SELECT_COLS =
-  "id, linkedin_url, linkedin_profile, pre_score, signal_type, signal_context, status, exported_to_sheet_at";
+  "id, linkedin_url, linkedin_profile, pre_score, signal_type, signal_context, status, exported_to_sheet_at, llm_score, llm_reasoning, llm_qualified_at";
 
 // n8n webhook that appends a row to the overview Google Sheet (Webhook → Google
 // Sheets "Append Row"). n8n holds the Google OAuth credential, so we never need
@@ -44,12 +44,23 @@ export function formatReasoning(candidate) {
 // Returns a flat object whose keys match the n8n webhook -> Google Sheets mapping.
 export function buildRow(candidate) {
   const p = candidate.linkedin_profile ?? {};
+  // Only trust LLM fields when the qualification call actually completed.
+  // If the LLM step failed (llm_qualified_at is null), we fall back to the
+  // factual signal-context formatter so the sheet still gets a useful row.
+  const hasLlm = !!candidate.llm_qualified_at;
   return {
     naam: p.name ?? "",
     bedrijf: p.company ?? "",
     rol: p.role ?? p.headline ?? "",
     pre_score: candidate.pre_score != null ? String(candidate.pre_score) : "",
-    reasoning: formatReasoning(candidate),
+    ai_score:
+      hasLlm && candidate.llm_score != null
+        ? String(Math.round(candidate.llm_score))
+        : "",
+    reasoning:
+      hasLlm && candidate.llm_reasoning
+        ? candidate.llm_reasoning
+        : formatReasoning(candidate),
     disqualifier: disqualifierFlag(p),
     linkedin_url: candidate.linkedin_url ?? "",
     exported_at: new Date().toISOString(),
