@@ -1,7 +1,14 @@
 import { createClient } from "@supabase/supabase-js";
 
 const SELECT_COLS =
-  "id, linkedin_url, linkedin_profile, pre_score, signal_type, signal_context, status, exported_to_sheet_at, llm_score, llm_reasoning, llm_qualified_at";
+  "id, linkedin_url, linkedin_profile, pre_score, signal_type, signal_context, status, exported_to_sheet_at, llm_score, llm_reasoning, llm_qualified_at, embedding_sim, top_exemplar";
+
+// We read from the `candidates_with_similarity` view (migration 007) which
+// inherits every column of `candidates` plus two derived: `embedding_sim`
+// (max cosine similarity to any workspace exemplar, 0.0–1.0 or null) and
+// `top_exemplar` (label of the closest matching exemplar). PostgREST surfaces
+// views with the same interface as tables, so Supabase JS works unchanged.
+const CANDIDATES_VIEW = "candidates_with_similarity";
 
 // n8n webhook that appends a row to the overview Google Sheet (Webhook → Google
 // Sheets "Append Row"). n8n holds the Google OAuth credential, so we never need
@@ -57,6 +64,11 @@ export function buildRow(candidate) {
       hasLlm && candidate.llm_score != null
         ? String(Math.round(candidate.llm_score))
         : "",
+    embedding_sim:
+      candidate.embedding_sim != null
+        ? Number(candidate.embedding_sim).toFixed(2)
+        : "",
+    top_exemplar: candidate.top_exemplar ?? "",
     reasoning:
       hasLlm && candidate.llm_reasoning
         ? candidate.llm_reasoning
@@ -86,14 +98,14 @@ export default async function handler(req, res) {
   let candidates;
   if (backfillAll) {
     const { data, error } = await supabase
-      .from("candidates")
+      .from(CANDIDATES_VIEW)
       .select(SELECT_COLS)
       .eq("status", "qualified")
       .is("exported_to_sheet_at", null);
     if (error) return res.status(500).json({ error: error.message });
     candidates = data ?? [];
   } else {
-    const { data, error } = await supabase.from("candidates").select(SELECT_COLS).in("id", candidateIds);
+    const { data, error } = await supabase.from(CANDIDATES_VIEW).select(SELECT_COLS).in("id", candidateIds);
     if (error) return res.status(500).json({ error: error.message });
     // Idempotency: never write a candidate that's already in the sheet
     candidates = (data ?? []).filter((c) => !c.exported_to_sheet_at);
