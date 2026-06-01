@@ -216,11 +216,20 @@ export default function Home() {
 
         {/* Leadfinder card */}
         <motion.div
+          role="button"
+          tabIndex={0}
+          aria-label="Open Leadfinder"
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: WORKFLOW_MODES.length * 0.08, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-          className="group mt-3 glass-card rounded-2xl p-5 cursor-pointer transition-all duration-300 hover:scale-[1.01] hover:shadow-lg hover:accent-glow"
+          className="group mt-3 glass-card rounded-2xl p-5 cursor-pointer transition-all duration-300 hover:scale-[1.01] hover:shadow-lg hover:accent-glow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2"
           onClick={() => navigate(createPageUrl("Leadfinder"))}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              navigate(createPageUrl("Leadfinder"));
+            }
+          }}
         >
           <div className="flex items-center gap-4">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-600/10 ring-1 ring-emerald-600/15 transition-colors duration-300 group-hover:bg-emerald-600 group-hover:ring-emerald-600">
