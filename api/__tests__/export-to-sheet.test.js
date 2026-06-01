@@ -85,6 +85,8 @@ describe("buildRow", () => {
       "rol",
       "pre_score",
       "ai_score",
+      "embedding_sim",
+      "top_exemplar",
       "reasoning",
       "disqualifier",
       "linkedin_url",
@@ -189,5 +191,37 @@ describe("buildRow with LLM fields", () => {
     expect(row.ai_score).toBe("");
     // Reasoning falls back when qualified_at is missing — even if reasoning is present.
     expect(row.reasoning).not.toBe("partial");
+  });
+});
+
+describe("buildRow with embedding fields", () => {
+  it("formats embedding_sim to 2 decimals and surfaces top_exemplar label", () => {
+    const candidate = {
+      linkedin_url: "u",
+      linkedin_profile: { name: "Sam" },
+      signal_type: "content",
+      signal_context: { posts: [] },
+      pre_score: 0.5,
+      embedding_sim: 0.6234,
+      top_exemplar: "Exemplar #2",
+    };
+    const row = buildRow(candidate);
+    expect(row.embedding_sim).toBe("0.62");
+    expect(row.top_exemplar).toBe("Exemplar #2");
+  });
+
+  it("leaves embedding_sim + top_exemplar empty when candidate is not embedded", () => {
+    const candidate = {
+      linkedin_url: "u",
+      linkedin_profile: { name: "Sam" },
+      signal_type: "content",
+      signal_context: { posts: [] },
+      pre_score: 0.5,
+      embedding_sim: null,
+      top_exemplar: null,
+    };
+    const row = buildRow(candidate);
+    expect(row.embedding_sim).toBe("");
+    expect(row.top_exemplar).toBe("");
   });
 });
