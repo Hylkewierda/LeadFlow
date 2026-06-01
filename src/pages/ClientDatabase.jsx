@@ -1,4 +1,3 @@
-import React from "react";
 import { ExternalLink, Users } from "lucide-react";
 import { motion } from "framer-motion";
 

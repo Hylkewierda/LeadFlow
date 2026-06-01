@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { ExternalLink, Loader2, CheckCircle2, Send, FileSpreadsheet } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 

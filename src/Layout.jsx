@@ -1,4 +1,3 @@
-import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "./utils";
 import { LogOut, Home, MessageSquare, Users, BarChart3, HelpCircle, BookOpen } from "lucide-react";
