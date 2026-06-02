@@ -82,21 +82,28 @@ export default async function handler(req, res) {
 
   const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
-  // Resolve the candidate set
+  // Resolve the candidate set. Lookalike-search hits live in a separate flow
+  // (see api/export-lookalike-to-sheet.js + a dedicated Sheet) — we MUST exclude
+  // them here so a backfill doesn't dump them into the regular Sheet.
   let candidates;
   if (backfillAll) {
     const { data, error } = await supabase
       .from("candidates")
-      .select(SELECT_COLS)
+      .select(SELECT_COLS + ", lookalike_search_id")
       .eq("status", "qualified")
-      .is("exported_to_sheet_at", null);
+      .is("exported_to_sheet_at", null)
+      .is("lookalike_search_id", null);
     if (error) return res.status(500).json({ error: error.message });
     candidates = data ?? [];
   } else {
-    const { data, error } = await supabase.from("candidates").select(SELECT_COLS).in("id", candidateIds);
+    const { data, error } = await supabase
+      .from("candidates")
+      .select(SELECT_COLS + ", lookalike_search_id")
+      .in("id", candidateIds);
     if (error) return res.status(500).json({ error: error.message });
-    // Idempotency: never write a candidate that's already in the sheet
-    candidates = (data ?? []).filter((c) => !c.exported_to_sheet_at);
+    // Idempotency: never write a candidate that's already in the sheet;
+    // and never write a lookalike-origin candidate into the regular Sheet.
+    candidates = (data ?? []).filter((c) => !c.exported_to_sheet_at && !c.lookalike_search_id);
   }
 
   if (candidates.length === 0) {
