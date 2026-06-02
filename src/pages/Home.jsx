@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "../utils";
-import { ExternalLink, Loader2, Zap, Lock, Activity, Radar, ChevronRight } from "lucide-react";
+import { ExternalLink, Loader2, Zap, Lock, Activity, Radar, ChevronRight, Sparkles } from "lucide-react";
 import { motion } from "framer-motion";
 import { useWorkflow } from "../components/WorkflowContext";
 
@@ -247,6 +247,45 @@ export default function Home() {
               </div>
               <p className="mt-0.5 text-[12px] leading-relaxed text-muted-foreground">
                 KB-gestuurde lead-discovery via LinkedIn. Triage candidates en qualify ze direct naar je Sheet.
+              </p>
+            </div>
+            <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground/40 transition-all duration-300 group-hover:translate-x-0.5 group-hover:text-emerald-600" />
+          </div>
+        </motion.div>
+
+        {/* Lookalike search card */}
+        <motion.div
+          role="button"
+          tabIndex={0}
+          aria-label="Open Lookalike search"
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: (WORKFLOW_MODES.length + 1) * 0.08, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+          className="group mt-3 glass-card rounded-2xl p-5 cursor-pointer transition-all duration-300 hover:scale-[1.01] hover:shadow-lg hover:accent-glow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2"
+          onClick={() => navigate(createPageUrl("LookalikeSearch"))}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              navigate(createPageUrl("LookalikeSearch"));
+            }
+          }}
+        >
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-600/10 ring-1 ring-emerald-600/15 transition-colors duration-300 group-hover:bg-emerald-600 group-hover:ring-emerald-600">
+              <Sparkles
+                className="h-5 w-5 text-emerald-700 transition-colors duration-300 group-hover:text-white"
+                strokeWidth={1.8}
+              />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <h3 className="text-[15px] font-semibold text-foreground">Lookalike search</h3>
+                <span className="rounded-full bg-emerald-600/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
+                  Anchor-driven
+                </span>
+              </div>
+              <p className="mt-0.5 text-[12px] leading-relaxed text-muted-foreground">
+                Plak 1+ LinkedIn-URLs als ICP-anker. Wij distilleren het archetype en zoeken soortgelijke profielen.
               </p>
             </div>
             <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground/40 transition-all duration-300 group-hover:translate-x-0.5 group-hover:text-emerald-600" />
