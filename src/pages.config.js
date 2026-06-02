@@ -52,6 +52,7 @@ import Guide from './pages/Guide';
 import Home from './pages/Home';
 import InteractionsReasoning from './pages/InteractionsReasoning';
 import Leadfinder from './pages/Leadfinder';
+import LookalikeSearch from './pages/LookalikeSearch';
 import MaybeLeads from './pages/MaybeLeads';
 import SendMessage from './pages/SendMessage';
 import WorkflowActivated from './pages/WorkflowActivated';
@@ -64,6 +65,7 @@ export const PAGES = {
     "Home": Home,
     "InteractionsReasoning": InteractionsReasoning,
     "Leadfinder": Leadfinder,
+    "LookalikeSearch": LookalikeSearch,
     "MaybeLeads": MaybeLeads,
     "SendMessage": SendMessage,
     "WorkflowActivated": WorkflowActivated,
