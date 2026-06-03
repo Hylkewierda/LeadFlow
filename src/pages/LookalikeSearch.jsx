@@ -284,9 +284,6 @@ export default function LookalikeSearch() {
                 Wordt door zowel Opus (zoekqueries) als Haiku (scoring) meegelezen. Max 500 chars.
               </p>
             </div>
-            <p className="text-[11px] text-muted-foreground">
-              Kosten ≈ $1 per zoekopdracht (Apify + OpenAI + Anthropic). Duurt 3-6 min.
-            </p>
             {submitError && (
               <div className="rounded-xl bg-red-50 px-3 py-2 text-[12px] text-red-700">
                 {submitError}
