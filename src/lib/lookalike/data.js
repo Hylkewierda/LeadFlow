@@ -44,10 +44,6 @@ export async function exportLookalikeSearchToSheet(searchId) {
   return resp.json();
 }
 
-/**
- * URL of the lookalike-Sheet the dedicated n8n webhook writes to. Placeholder —
- * REPLACE with the actual lookalike Sheet URL after creating it. The same URL
- * is shown on the LookalikeSearch page's "Open lookalike Sheet" button.
- */
+/** URL of the dedicated lookalike Sheet (LEADFINDER_LOOKALIKES) that n8n writes to. */
 export const LOOKALIKE_SHEET_URL =
-  "https://docs.google.com/spreadsheets/d/130dUCwgzNuX1okPHTWzpxM2N-xs0jR1ufDimeiBDBLw/edit?gid=0#gid=0";
+  "https://docs.google.com/spreadsheets/d/1bzOLxMINE7HcmYi_4BYZaNfTAy1YGm69JYLImyY6FK0/edit?gid=0#gid=0";
