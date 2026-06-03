@@ -38,9 +38,13 @@ function StageRow({ stage, currentStatus }) {
   const stageIdx = STAGES.findIndex((s) => s.key === stage.key);
   const currentIdx = STAGES.findIndex((s) => s.key === currentStatus);
   const failed = currentStatus === "failed";
-  const isCurrent = stage.key === currentStatus;
-  const isDone = !failed && currentIdx > stageIdx;
-  const isPending = !failed && currentIdx < stageIdx;
+  // When the search is completed, EVERY stage — including the "Klaar" row
+  // itself — should be shown as done (checkmark, not spinner). Otherwise the
+  // last row stays stuck on its loader animation forever after success.
+  const allDone = currentStatus === "completed";
+  const isCurrent = !failed && !allDone && stage.key === currentStatus;
+  const isDone = !failed && (allDone || currentIdx > stageIdx);
+  const isPending = !failed && !allDone && currentIdx < stageIdx;
 
   return (
     <div className="flex items-center gap-3 py-2">
