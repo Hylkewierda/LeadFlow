@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import {
   Sparkles,
@@ -28,6 +28,11 @@ const STAGES = [
 ];
 
 const STORAGE_KEY = "lookalike_active_search_id";
+
+// LocalStorage key for "we've already triggered the Sheet export for this search,
+// don't fire it again on page reload". Per-search-id, so multiple searches over
+// time each get their own latch.
+const exportFiredKey = (id) => `lookalike_export_fired_${id}`;
 
 function StageRow({ stage, currentStatus }) {
   const stageIdx = STAGES.findIndex((s) => s.key === stage.key);
@@ -77,9 +82,16 @@ export default function LookalikeSearch() {
   const [search, setSearch] = useState(null);
   const [searchError, setSearchError] = useState(null);
 
-  // Auto-export latch — fire exactly once when status flips to 'completed'.
-  const autoExportFiredRef = useRef(false);
-  const [exportState, setExportState] = useState({ status: "idle", exported: 0, error: null });
+  // Auto-export latch is persisted in localStorage per search-id so a page
+  // reload after the export has fired doesn't re-trigger it (the previous
+  // approach used a useRef which resets to false on every mount → users got
+  // stuck on "Pushen naar Sheet…" with duplicate-pushing on every refresh).
+  const [exportState, setExportState] = useState(() => {
+    const stored = activeSearchId ? localStorage.getItem(exportFiredKey(activeSearchId)) : null;
+    return stored
+      ? { status: "done", exported: Number(stored) || 0, error: null, restoredFromStorage: true }
+      : { status: "idle", exported: 0, error: null, restoredFromStorage: false };
+  });
 
   const handleSubmit = useCallback(async (e) => {
     e.preventDefault();
@@ -98,8 +110,7 @@ export default function LookalikeSearch() {
       localStorage.setItem(STORAGE_KEY, searchId);
       setActiveSearchId(searchId);
       setSearch(null);
-      autoExportFiredRef.current = false;
-      setExportState({ status: "idle", exported: 0, error: null });
+      setExportState({ status: "idle", exported: 0, error: null, restoredFromStorage: false });
     } catch (err) {
       setSubmitError(err.message || "Kon zoekopdracht niet starten.");
     } finally {
@@ -133,32 +144,42 @@ export default function LookalikeSearch() {
     };
   }, [activeSearchId]);
 
-  // Auto-trigger the Sheet export when the search completes.
+  // Auto-trigger the Sheet export when the search completes, exactly once
+  // per search-id. The "fired" latch lives in localStorage so a page reload
+  // after the export has run (succeeded or timed out) doesn't re-fire it.
   useEffect(() => {
     if (!search || search.status !== "completed") return;
-    if (autoExportFiredRef.current) return;
-    autoExportFiredRef.current = true;
+    if (localStorage.getItem(exportFiredKey(search.id))) return;
+    localStorage.setItem(exportFiredKey(search.id), "0"); // optimistic lock; updated with real count on success
     (async () => {
-      setExportState({ status: "running", exported: 0, error: null });
+      setExportState({ status: "running", exported: 0, error: null, restoredFromStorage: false });
       try {
         const r = await exportLookalikeSearchToSheet(search.id);
-        setExportState({ status: "done", exported: r.exported ?? 0, error: null });
+        const exported = r.exported ?? 0;
+        localStorage.setItem(exportFiredKey(search.id), String(exported));
+        setExportState({ status: "done", exported, error: null, restoredFromStorage: false });
       } catch (e) {
-        setExportState({ status: "error", exported: 0, error: e.message });
+        // Keep the latch set even on error so reloads don't keep retrying;
+        // user can click "Nieuwe zoekopdracht" or call /api/export-lookalike-to-sheet manually.
+        setExportState({ status: "error", exported: 0, error: e.message, restoredFromStorage: false });
       }
     })();
   }, [search]);
 
   const resetForNewSearch = useCallback(() => {
-    localStorage.removeItem(STORAGE_KEY);
+    if (activeSearchId) {
+      // Keep the per-search export latch in storage so re-visiting this
+      // search-id later still won't re-fire. Just clear the "currently active"
+      // pointer so the form shows again.
+      localStorage.removeItem(STORAGE_KEY);
+    }
     setActiveSearchId(null);
     setSearch(null);
     setSearchError(null);
     setUrlsText("");
     setName("");
-    autoExportFiredRef.current = false;
-    setExportState({ status: "idle", exported: 0, error: null });
-  }, []);
+    setExportState({ status: "idle", exported: 0, error: null, restoredFromStorage: false });
+  }, [activeSearchId]);
 
   const isTerminal = useMemo(
     () => search && (search.status === "completed" || search.status === "failed"),
@@ -331,7 +352,12 @@ export default function LookalikeSearch() {
                         Pushen naar Sheet…
                       </span>
                     )}
-                    {exportState.status === "done" && (
+                    {exportState.status === "done" && exportState.restoredFromStorage && (
+                      <span className="text-emerald-700">
+                        ✓ Eerder geëxporteerd ({exportState.exported} rijen) — open de Sheet hieronder
+                      </span>
+                    )}
+                    {exportState.status === "done" && !exportState.restoredFromStorage && (
                       <span className="text-emerald-700">
                         ✓ {exportState.exported} rijen in de Sheet gezet
                       </span>

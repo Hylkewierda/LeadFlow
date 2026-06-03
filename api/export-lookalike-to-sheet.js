@@ -113,6 +113,12 @@ export default async function handler(req, res) {
   // Finishes", so each fetch returns only after the Sheets-append completes —
   // serializing the writes and preventing the "find first empty row" race we
   // hit on the original Sheet.
+  //
+  // Checkpoint exported_to_sheet_at PER candidate (not in one batched UPDATE at
+  // the end). With 200+ candidates a single export easily exceeds Vercel's
+  // 5-min function timeout; without the per-row checkpoint the next retry
+  // re-pushes everything → duplicate rows in the Sheet. With it, retry only
+  // touches what's still pending.
   const exportedIds = [];
   const failed = [];
   for (const c of candidates) {
@@ -123,15 +129,14 @@ export default async function handler(req, res) {
         body: JSON.stringify(buildLookalikeRow(c, searchNameById)),
       });
       if (!resp.ok) throw new Error(`n8n webhook returned ${resp.status}`);
+      await supabase
+        .from("candidates")
+        .update({ exported_to_sheet_at: new Date().toISOString() })
+        .eq("id", c.id);
       exportedIds.push(c.id);
     } catch (e) {
       failed.push({ id: c.id, message: (e?.message || "unknown").slice(0, 200) });
     }
-  }
-
-  if (exportedIds.length > 0) {
-    const now = new Date().toISOString();
-    await supabase.from("candidates").update({ exported_to_sheet_at: now }).in("id", exportedIds);
   }
 
   return res.status(200).json({ exported: exportedIds.length, failed });
