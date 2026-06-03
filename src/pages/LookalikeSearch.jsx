@@ -72,9 +72,12 @@ function StageRow({ stage, currentStatus }) {
   );
 }
 
+const FEEDBACK_MAX = 500;
+
 export default function LookalikeSearch() {
   const [urlsText, setUrlsText] = useState("");
   const [name, setName] = useState("");
+  const [feedback, setFeedback] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState(null);
 
@@ -106,7 +109,11 @@ export default function LookalikeSearch() {
     }
     setSubmitting(true);
     try {
-      const { searchId } = await startLookalikeSearch({ urls, name: name || null });
+      const { searchId } = await startLookalikeSearch({
+        urls,
+        name: name || null,
+        feedback: feedback.trim() || null,
+      });
       localStorage.setItem(STORAGE_KEY, searchId);
       setActiveSearchId(searchId);
       setSearch(null);
@@ -116,7 +123,7 @@ export default function LookalikeSearch() {
     } finally {
       setSubmitting(false);
     }
-  }, [urlsText, name]);
+  }, [urlsText, name, feedback]);
 
   // Poll for status while the search is active.
   useEffect(() => {
@@ -178,6 +185,7 @@ export default function LookalikeSearch() {
     setSearchError(null);
     setUrlsText("");
     setName("");
+    setFeedback("");
     setExportState({ status: "idle", exported: 0, error: null, restoredFromStorage: false });
   }, [activeSearchId]);
 
@@ -243,10 +251,38 @@ export default function LookalikeSearch() {
                 className="w-full rounded-xl border border-input/60 bg-white/60 px-3.5 py-2.5 text-[13px] font-mono focus:border-emerald-600/60 focus:outline-none focus:ring-2 focus:ring-emerald-600/15"
                 disabled={submitting}
               />
+            </div>
+            <div>
+              <div className="flex items-baseline justify-between mb-1">
+                <label className="block text-[12px] font-semibold text-foreground">
+                  Feedback / aanvullingen{" "}
+                  <span className="text-muted-foreground font-normal">(optioneel)</span>
+                </label>
+                <span
+                  className={`text-[10px] tabular-nums ${
+                    feedback.length > FEEDBACK_MAX
+                      ? "text-red-600 font-semibold"
+                      : "text-muted-foreground"
+                  }`}
+                >
+                  {feedback.length}/{FEEDBACK_MAX}
+                </span>
+              </div>
+              <textarea
+                value={feedback}
+                onChange={(e) => setFeedback(e.target.value.slice(0, FEEDBACK_MAX))}
+                placeholder="bv. Wil meer CFOs bij Nederlandse marketplaces, geen accountants of personen bij accountancy-firma's."
+                rows={3}
+                className="w-full rounded-xl border border-input/60 bg-white/60 px-3.5 py-2.5 text-[13px] focus:border-emerald-600/60 focus:outline-none focus:ring-2 focus:ring-emerald-600/15"
+                disabled={submitting}
+              />
               <p className="mt-1.5 text-[11px] text-muted-foreground">
-                Kosten ≈ $1 per zoekopdracht (Apify + OpenAI + Anthropic). Duurt 3-6 min.
+                Wordt door zowel Opus (zoekqueries) als Haiku (scoring) meegelezen. Max 500 chars.
               </p>
             </div>
+            <p className="text-[11px] text-muted-foreground">
+              Kosten ≈ $1 per zoekopdracht (Apify + OpenAI + Anthropic). Duurt 3-6 min.
+            </p>
             {submitError && (
               <div className="rounded-xl bg-red-50 px-3 py-2 text-[12px] text-red-700">
                 {submitError}

@@ -1,11 +1,11 @@
 import { browserSupabase } from "../leadfinder/supabase.js";
 
 /** Submit a new lookalike search. Returns the inserted searchId. */
-export async function startLookalikeSearch({ urls, name }) {
+export async function startLookalikeSearch({ urls, name, feedback }) {
   const resp = await fetch("/api/lookalike-searches", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ urls, name }),
+    body: JSON.stringify({ urls, name, feedback }),
   });
   const text = await resp.text();
   if (!resp.ok) {
@@ -26,7 +26,9 @@ export async function getLookalikeSearch(id) {
   const supabase = browserSupabase();
   const { data, error } = await supabase
     .from("lookalike_searches")
-    .select("id, name, source_urls, status, playbook, candidates_found, candidates_qualified, error, created_at, completed_at")
+    .select(
+      "id, name, source_urls, feedback, status, playbook, candidates_found, candidates_qualified, error, created_at, completed_at",
+    )
     .eq("id", id)
     .maybeSingle();
   if (error) throw new Error(`Lookup failed: ${error.message}`);

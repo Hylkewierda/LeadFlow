@@ -33,6 +33,14 @@ export default async function handler(req, res) {
   const slug = typeof body.workspaceSlug === "string" ? body.workspaceSlug.trim() : "actuals";
   const name = typeof body.name === "string" ? body.name.trim().slice(0, 200) : null;
   const urls = normalizeUrls(body.urls);
+  // Steering text the worker threads into both the Opus playbook prompt and
+  // the Haiku scoring prompt. Capped at 500 chars server-side — the UI textarea
+  // shows a counter at the same limit, and the backend prompt builders defensively
+  // slice again so a CLI bypass can't blow up the prompt size.
+  const feedback =
+    typeof body.feedback === "string" && body.feedback.trim()
+      ? body.feedback.trim().slice(0, 500)
+      : null;
 
   if (urls.length === 0) {
     return res
@@ -57,6 +65,7 @@ export default async function handler(req, res) {
       workspace_id: ws.data.id,
       name: name || null,
       source_urls: urls,
+      feedback,
       status: "pending",
     })
     .select("id")
