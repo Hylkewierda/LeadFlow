@@ -12,6 +12,7 @@ import {
 import { CandidateCard } from "@/components/leadfinder/CandidateCard.jsx";
 import { StatusFilter } from "@/components/leadfinder/StatusFilter.jsx";
 import { RunsStrip } from "@/components/leadfinder/RunsStrip.jsx";
+import { ScopeSteeringCard } from "@/components/leadfinder/ScopeSteeringCard";
 
 // Qualified-leads overview Google Sheet (gevuld via de auto-export bij Qualify).
 const SHEET_URL =
@@ -161,6 +162,10 @@ export default function Leadfinder() {
           <>
             <motion.div variants={item}>
               <RunsStrip runs={runs} isRunning={isRunning} onStart={handleStartRun} />
+            </motion.div>
+
+            <motion.div variants={item}>
+              <ScopeSteeringCard />
             </motion.div>
 
             <motion.div
