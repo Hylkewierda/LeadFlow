@@ -136,15 +136,26 @@ export async function listRecentRuns(limit = 5) {
   return data ?? [];
 }
 
-export async function startRun() {
+export async function startRun(manualPosts = []) {
   const res = await fetch("/api/runs", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ workspaceSlug: WORKSPACE_SLUG }),
+    body: JSON.stringify({ workspaceSlug: WORKSPACE_SLUG, manualPosts }),
   });
   if (!res.ok) {
     const payload = await res.json().catch(() => ({ error: "Unknown error" }));
     throw new Error(payload.error || `HTTP ${res.status}`);
   }
   return res.json();
+}
+
+export async function listPostAnalyses(runId) {
+  const supabase = browserSupabase();
+  const { data, error } = await supabase
+    .from("post_analyses")
+    .select("*")
+    .eq("run_id", runId)
+    .order("created_at", { ascending: true });
+  if (error) throw new Error(error.message);
+  return data ?? [];
 }
