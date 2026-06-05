@@ -13,6 +13,7 @@ import { CandidateCard } from "@/components/leadfinder/CandidateCard.jsx";
 import { StatusFilter } from "@/components/leadfinder/StatusFilter.jsx";
 import { RunsStrip } from "@/components/leadfinder/RunsStrip.jsx";
 import { PostScrapeCard } from "@/components/leadfinder/PostScrapeCard";
+import { PostAnalysisPanel } from "@/components/leadfinder/PostAnalysisPanel";
 
 // Qualified-leads overview Google Sheet (gevuld via de auto-export bij Qualify).
 const SHEET_URL =
@@ -38,6 +39,11 @@ export default function Leadfinder() {
   const [loading, setLoading] = useState(true);
 
   const isRunning = useMemo(() => runs.some((r) => r.status === "running"), [runs]);
+
+  const latestPostsRunId = useMemo(() => {
+    const r = runs.find((x) => x.triggered_by === "cloud-ui-posts");
+    return r ? r.id : null;
+  }, [runs]);
 
   const reload = useCallback(async () => {
     const [cands, rs] = await Promise.all([listCandidates(), listRecentRuns(5)]);
@@ -173,6 +179,9 @@ export default function Leadfinder() {
             </motion.div>
             <motion.div variants={item}>
               <PostScrapeCard isRunning={isRunning} onScrape={handleScrapePosts} />
+            </motion.div>
+            <motion.div variants={item}>
+              <PostAnalysisPanel runId={latestPostsRunId} isRunning={isRunning} />
             </motion.div>
 
             <motion.div
