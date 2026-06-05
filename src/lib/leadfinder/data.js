@@ -148,3 +148,24 @@ export async function startRun() {
   }
   return res.json();
 }
+
+export async function getScopeSteering() {
+  const supabase = browserSupabase();
+  const { data, error } = await supabase
+    .from("workspaces")
+    .select("scope_steering")
+    .eq("slug", WORKSPACE_SLUG)
+    .single();
+  if (error) throw new Error(error.message);
+  return data?.scope_steering ?? "";
+}
+
+export async function saveScopeSteering(text) {
+  const supabase = browserSupabase();
+  const workspaceId = await getWorkspaceId();
+  const { error } = await supabase
+    .from("workspaces")
+    .update({ scope_steering: text.trim() ? text.trim().slice(0, 1500) : null })
+    .eq("id", workspaceId);
+  if (error) throw new Error(error.message);
+}
