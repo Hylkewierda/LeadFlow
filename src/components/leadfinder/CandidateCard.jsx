@@ -152,8 +152,8 @@ export function CandidateCard({ candidate, onQualify, onDisqualify, onReset }) {
       >
         <span>
           {expanded ? "Hide" : "Show"} signal context (
-          {candidate.signal_context.posts.length} posts ·{" "}
-          {candidate.signal_context.engagements.length} engagements)
+          {(candidate.signal_context.posts ?? []).length} posts ·{" "}
+          {(candidate.signal_context.engagements ?? []).length} engagements)
         </span>
         {expanded ? (
           <ChevronUp className="w-3.5 h-3.5" aria-hidden />
@@ -164,7 +164,7 @@ export function CandidateCard({ candidate, onQualify, onDisqualify, onReset }) {
 
       {expanded && (
         <div className="space-y-3 border-t border-slate-100 bg-slate-50/40 px-4 py-3 text-sm">
-          {candidate.signal_context.posts.map((post, i) => (
+          {(candidate.signal_context.posts ?? []).map((post, i) => (
             <div
               key={i}
               className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm"
@@ -188,7 +188,7 @@ export function CandidateCard({ candidate, onQualify, onDisqualify, onReset }) {
               </div>
             </div>
           ))}
-          {candidate.signal_context.engagements.map((eng, i) => (
+          {(candidate.signal_context.engagements ?? []).map((eng, i) => (
             <div
               key={i}
               className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm"
@@ -217,8 +217,8 @@ export function CandidateCard({ candidate, onQualify, onDisqualify, onReset }) {
               </div>
             </div>
           ))}
-          {candidate.signal_context.posts.length === 0 &&
-            candidate.signal_context.engagements.length === 0 && (
+          {(candidate.signal_context.posts ?? []).length === 0 &&
+            (candidate.signal_context.engagements ?? []).length === 0 && (
               <p className="text-xs italic text-slate-400">No signal context stored.</p>
             )}
         </div>
