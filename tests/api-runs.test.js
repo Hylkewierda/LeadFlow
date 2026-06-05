@@ -10,6 +10,7 @@ const mockState = {
 };
 
 const updateCalls = [];
+const insertCalls = [];
 
 vi.mock("@supabase/supabase-js", () => ({
   createClient: () => ({
@@ -36,15 +37,18 @@ vi.mock("@supabase/supabase-js", () => ({
               }),
             }),
           }),
-          insert: () => ({
-            select: () => ({
-              single: () =>
-                Promise.resolve({
-                  data: mockState.insertError ? null : mockState.inserted,
-                  error: mockState.insertError ? { message: mockState.insertError } : null,
-                }),
-            }),
-          }),
+          insert: (payload) => {
+            insertCalls.push(payload);
+            return {
+              select: () => ({
+                single: () =>
+                  Promise.resolve({
+                    data: mockState.insertError ? null : mockState.inserted,
+                    error: mockState.insertError ? { message: mockState.insertError } : null,
+                  }),
+              }),
+            };
+          },
           update: (patch) => ({
             eq: (_c, id) => {
               updateCalls.push({ patch, id });
@@ -76,6 +80,7 @@ beforeEach(() => {
   mockState.dispatchOk = true;
   mockState.dispatchError = "";
   updateCalls.length = 0;
+  insertCalls.length = 0;
   fetchCalls.length = 0;
   process.env.SUPABASE_URL = "https://test.supabase.co";
   process.env.SUPABASE_SERVICE_ROLE_KEY = "service-key";
@@ -149,5 +154,34 @@ describe("POST /api/runs", () => {
     expect(updateCalls).toHaveLength(1);
     expect(updateCalls[0].patch.status).toBe("failed");
     expect(updateCalls[0].id).toBe("run-new");
+  });
+
+  it("writes manual_posts and posts triggered_by when manualPosts are supplied", async () => {
+    const [req, res] = makeReqRes("POST", {
+      workspaceSlug: "actuals",
+      manualPosts: ["https://www.linkedin.com/posts/a", "  ", "https://www.linkedin.com/posts/b"],
+    });
+    await handler(req, res);
+    expect(res.statusCode).toBe(200);
+    expect(insertCalls).toHaveLength(1);
+    expect(insertCalls[0].manual_posts).toEqual([
+      "https://www.linkedin.com/posts/a",
+      "https://www.linkedin.com/posts/b",
+    ]);
+    expect(insertCalls[0].triggered_by).toBe("cloud-ui-posts");
+  });
+
+  it("caps manual_posts at 10", async () => {
+    const many = Array.from({ length: 15 }, (_, i) => `https://www.linkedin.com/posts/${i}`);
+    const [req, res] = makeReqRes("POST", { workspaceSlug: "actuals", manualPosts: many });
+    await handler(req, res);
+    expect(insertCalls[0].manual_posts).toHaveLength(10);
+  });
+
+  it("keeps manual_posts null and triggered_by cloud-ui for a normal run", async () => {
+    const [req, res] = makeReqRes("POST", { workspaceSlug: "actuals" });
+    await handler(req, res);
+    expect(insertCalls[0].manual_posts).toBeNull();
+    expect(insertCalls[0].triggered_by).toBe("cloud-ui");
   });
 });

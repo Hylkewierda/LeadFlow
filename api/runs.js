@@ -19,6 +19,14 @@ export default async function handler(req, res) {
   const body = req.body || {};
   const slug = typeof body.workspaceSlug === "string" ? body.workspaceSlug.trim() : "actuals";
 
+  const MAX_POSTS = 10;
+  const manualPosts = Array.isArray(body.manualPosts)
+    ? body.manualPosts
+        .filter((u) => typeof u === "string" && u.trim().length > 0)
+        .map((u) => u.trim())
+        .slice(0, MAX_POSTS)
+    : [];
+
   const supabase = serverSupabase();
 
   const ws = await supabase
@@ -46,7 +54,8 @@ export default async function handler(req, res) {
       workspace_id: ws.data.id,
       status: "running",
       started_at: new Date().toISOString(),
-      triggered_by: "cloud-ui",
+      triggered_by: manualPosts.length > 0 ? "cloud-ui-posts" : "cloud-ui",
+      manual_posts: manualPosts.length > 0 ? manualPosts : null,
       playbook: {},
       apify_run_ids: {},
       counts: {},
