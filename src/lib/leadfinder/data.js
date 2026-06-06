@@ -136,11 +136,11 @@ export async function listRecentRuns(limit = 5) {
   return data ?? [];
 }
 
-export async function startRun() {
+export async function startRun(manualPosts = []) {
   const res = await fetch("/api/runs", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ workspaceSlug: WORKSPACE_SLUG }),
+    body: JSON.stringify({ workspaceSlug: WORKSPACE_SLUG, manualPosts }),
   });
   if (!res.ok) {
     const payload = await res.json().catch(() => ({ error: "Unknown error" }));
@@ -168,4 +168,15 @@ export async function saveScopeSteering(text) {
     .update({ scope_steering: text.trim() ? text.trim().slice(0, 1500) : null })
     .eq("id", workspaceId);
   if (error) throw new Error(error.message);
+}
+
+export async function listPostAnalyses(runId) {
+  const supabase = browserSupabase();
+  const { data, error } = await supabase
+    .from("post_analyses")
+    .select("*")
+    .eq("run_id", runId)
+    .order("created_at", { ascending: true });
+  if (error) throw new Error(error.message);
+  return data ?? [];
 }
