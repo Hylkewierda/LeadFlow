@@ -3,6 +3,13 @@ import { browserSupabase } from "./supabase.js";
 const WORKSPACE_SLUG = "actuals";
 let workspaceIdCache = null;
 
+// Explicit column list for the candidate list. We must NOT `select("*")` here:
+// the `embedding` column is a 1536-dim pgvector, and pulling it for up to 1000
+// rows per page (2000+ candidates) makes PostgREST 500 on payload size/timeout.
+// These are every column the UI needs minus `embedding`/`embedded_at`.
+const CANDIDATE_LIST_COLUMNS =
+  "id,linkedin_url,linkedin_profile,signal_type,signal_context,signal_history,pre_score,status,first_run_id,last_run_id,created_at,updated_at,workspace_id,disqualify_reason,disqualify_note,qualified_by,hubspot_contact_id,pushed_to_hubspot_at,pushed_by,exported_to_sheet_at,llm_score,llm_reasoning,llm_qualified_at,lookalike_search_id,lookalike_sim";
+
 async function getWorkspaceId() {
   if (workspaceIdCache) return workspaceIdCache;
   const supabase = browserSupabase();
@@ -27,7 +34,7 @@ export async function listCandidates({ statuses, search } = {}) {
   while (true) {
     let query = supabase
       .from("candidates")
-      .select("*")
+      .select(CANDIDATE_LIST_COLUMNS)
       .eq("workspace_id", workspaceId);
     if (statuses && statuses.length > 0) {
       query = query.in("status", statuses);
