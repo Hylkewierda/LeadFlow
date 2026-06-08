@@ -93,6 +93,7 @@ export default function Home() {
         if (!response.ok) throw new Error("Workflow kon niet worden gestart");
 
         const data = await response.json();
+        if (!data.runId) throw new Error("Geen run ID ontvangen van server");
         startWorkflow(workflowMode.label, data.runId);
       } else {
         const response = await fetch(WEBHOOK_URL, {
