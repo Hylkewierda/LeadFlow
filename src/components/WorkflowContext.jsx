@@ -8,10 +8,10 @@ const POLL_INTERVAL_MS = 10_000; // Poll elke 10 seconden
 const loadState = () => {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
-    if (!stored) return { workflowRunning: false, activeWorkflowName: "", startedAt: null, runId: null };
+    if (!stored) return { workflowRunning: false, activeWorkflowName: "", runId: null };
     return JSON.parse(stored);
   } catch {
-    return { workflowRunning: false, activeWorkflowName: "", startedAt: null, runId: null };
+    return { workflowRunning: false, activeWorkflowName: "", runId: null };
   }
 };
 
@@ -24,7 +24,6 @@ export function WorkflowProvider({ children }) {
   const [workflowRunning, setWorkflowRunning] = useState(initial.workflowRunning);
   const [activeWorkflowName, setActiveWorkflowName] = useState(initial.activeWorkflowName);
   const activeNameRef = useRef(initial.activeWorkflowName);
-  const startedAtRef = useRef(initial.startedAt);
   const runIdRef = useRef(initial.runId);
   const pollRef = useRef(null);
 
@@ -33,9 +32,8 @@ export function WorkflowProvider({ children }) {
     setWorkflowRunning(false);
     setActiveWorkflowName("");
     activeNameRef.current = "";
-    startedAtRef.current = null;
     runIdRef.current = null;
-    saveState({ workflowRunning: false, activeWorkflowName: "", startedAt: null, runId: null });
+    saveState({ workflowRunning: false, activeWorkflowName: "", runId: null });
 
     if (pollRef.current) {
       clearInterval(pollRef.current);
@@ -56,29 +54,17 @@ export function WorkflowProvider({ children }) {
 
   const pollStatus = useCallback(async () => {
     const name = activeNameRef.current;
-    const startedAt = startedAtRef.current;
     const runId = runIdRef.current;
-    if (!name) return;
+    if (!name || !runId) return;
 
     try {
-      if (runId) {
-        const res = await fetch(`/api/workflows?run_id=${encodeURIComponent(runId)}`);
-        if (!res.ok) return;
-        const data = await res.json();
-        if (data.status === "completed") {
-          endWorkflow(name, { appended: data.counts?.appended });
-        } else if (data.status === "failed") {
-          endWorkflow(name, { failed: true, error: data.error });
-        }
-        return;
-      }
-
-      if (!startedAt) return;
-      const res = await fetch(`/api/workflow-status?workflow_name=${encodeURIComponent(name)}`);
+      const res = await fetch(`/api/workflows?run_id=${encodeURIComponent(runId)}`);
       if (!res.ok) return;
       const data = await res.json();
-      if (data.status === "completed" && data.completed_at > startedAt) {
-        endWorkflow(name);
+      if (data.status === "completed") {
+        endWorkflow(name, { appended: data.counts?.appended });
+      } else if (data.status === "failed") {
+        endWorkflow(name, { failed: true, error: data.error });
       }
     } catch {
       // Silently ignore poll errors
@@ -102,13 +88,11 @@ export function WorkflowProvider({ children }) {
   }, [workflowRunning, pollStatus]);
 
   const startWorkflow = (name, runId = null) => {
-    const now = Date.now();
     setWorkflowRunning(true);
     setActiveWorkflowName(name);
     activeNameRef.current = name;
-    startedAtRef.current = now;
     runIdRef.current = runId;
-    saveState({ workflowRunning: true, activeWorkflowName: name, startedAt: now, runId });
+    saveState({ workflowRunning: true, activeWorkflowName: name, runId });
   };
 
   return (

@@ -31,17 +31,18 @@ Current pages: `Home`, `Leadfinder`, `InteractionsReasoning`, `MaybeLeads`, `Sen
 ### State Management
 
 - **AuthContext** (`src/lib/AuthContext.jsx`) — email/password auth. Allowed users come from the `VITE_AUTH_USERS` env var (JSON array); session is persisted in `localStorage` under `leadflow_auth`.
-- **WorkflowContext** (`src/components/WorkflowContext.jsx`) — tracks the active workflow, polls `/api/workflow-status` every 10s via Upstash Redis, persists state in `localStorage`.
+- **WorkflowContext** (`src/components/WorkflowContext.jsx`) — tracks the active workflow by `runId`, polls `/api/workflows?run_id=<id>` every 10s (Supabase `workflow_runs`), persists state in `localStorage`, and toasts completion counts.
 - **TanStack Query** — configured in `src/lib/query-client.js`.
 - **localStorage keys** — daily workflow limits (`limiter_{mode}_{date}`), auth session, workflow state.
 
 ### Serverless API
 
-`api/workflow-status.js` is a Vercel serverless function. `POST` receives n8n webhook callbacks (protected by `WORKFLOW_API_KEY`); `GET` returns workflow completion status. Backed by Upstash Redis with a 1-hour TTL.
+`api/workflows.js` is a Vercel serverless function and the entry point for the 4 Home workflow modes. `POST { mode }` guards (per-mode already-running + 5/day), inserts a `workflow_runs` row, dispatches `Hylkewierda/lead-discovery-service/.github/workflows/run-workflow.yml` with `{ mode, run_id }`, and returns `{ runId }`. `GET ?run_id=<id>` returns the run's status/counts for polling. Requires `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `GITHUB_PAT`.
 
 ### External Integrations
 
-- **n8n** — webhooks fired from `Home.jsx`. There are 4 workflow modes, each capped at 5 runs per day via the `limiter_{mode}_{date}` localStorage key.
+- **Home workflow modes** — the 4 Home buttons (`Home.jsx`) POST to `/api/workflows` (code pipeline, see above); each is also capped at 5 runs/day client-side via the `limiter_{mode}_{date}` localStorage key. (The legacy n8n trigger webhook + `/api/workflow-status` Redis callback were retired in the 2026-06-08 cutover.)
+- **n8n (sheet exports)** — still used by `api/export-to-sheet.js`, `api/export-lookalike-to-sheet.js`, and `SendMessage.jsx` for their own webhooks; unrelated to the Home workflow trigger.
 - **HubSpot** — CRM for contacts/deals; linked from `SendMessage` and `ClientDatabase`.
 - **Google Sheets** — linked from `InteractionsReasoning` and `MaybeLeads` for data viewing and manual lead verdicts.
 
@@ -86,5 +87,5 @@ Deployed to Vercel via GitHub (origin: `Hylkewierda/LeadFlow`). Push to `main` t
 ## Environment Variables
 
 - **Frontend (Vite):** `VITE_AUTH_USERS`
-- **Vercel runtime:** `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`, `WORKFLOW_API_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `GITHUB_PAT`
+- **Vercel runtime:** `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `GITHUB_PAT` (used by `api/workflows.js` and `api/runs.js`). The `UPSTASH_REDIS_REST_URL`/`UPSTASH_REDIS_REST_TOKEN`/`WORKFLOW_API_KEY` vars are now orphaned after the n8n status-callback retirement and can be removed from Vercel.
 - **Autoresearch:** `HUBSPOT_API_KEY`, `GROQ_API_KEY`, `GROQ_MODEL`
