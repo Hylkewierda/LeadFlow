@@ -9,10 +9,10 @@ const WEBHOOK_URL = "https://hylkewnl.app.n8n.cloud/webhook/b77e71d3-03ea-4a2a-8
 const DAILY_LIMIT = 5;
 
 const WORKFLOW_MODES = [
-  { id: "AllPosts", storageId: "all_posts", label: "All Posts", description: "Analyseer alle posts", sheetUrl: null },
-  { id: "SpecificPosts", storageId: "specific_posts_v2", label: "Specific Posts", description: "Selectieve post analyse", sheetUrl: "https://docs.google.com/spreadsheets/d/1VUHdVrfQbsL8nYMoD1nhAq1ayFFpy77W3Eu7je1CdAc" },
-  { id: "Campaigns", storageId: "campaigns", label: "Campaigns", description: "Campaign leads", sheetUrl: "https://docs.google.com/spreadsheets/d/1UJvwFAZQJ6q_VRp3_MjphJ3bbdAp-JNhe1I08iKlxxU" },
-  { id: "CommentPosts", storageId: "comment_posts", label: "Comment Posts", description: "Comment engagement", sheetUrl: "https://docs.google.com/spreadsheets/d/1y4gPlMXPCSn54FyRc3vpMSDfI-L46LqlHaxmOZacJZo" },
+  { id: "AllPosts", storageId: "all_posts", label: "All Posts", description: "Analyseer alle posts", sheetUrl: null, apiMode: "all-posts", pipeline: "n8n" },
+  { id: "SpecificPosts", storageId: "specific_posts_v2", label: "Specific Posts", description: "Selectieve post analyse", sheetUrl: "https://docs.google.com/spreadsheets/d/1VUHdVrfQbsL8nYMoD1nhAq1ayFFpy77W3Eu7je1CdAc", apiMode: "specific-posts", pipeline: "n8n" },
+  { id: "Campaigns", storageId: "campaigns", label: "Campaigns", description: "Campaign leads", sheetUrl: "https://docs.google.com/spreadsheets/d/1UJvwFAZQJ6q_VRp3_MjphJ3bbdAp-JNhe1I08iKlxxU", apiMode: "campaigns", pipeline: "n8n" },
+  { id: "CommentPosts", storageId: "comment_posts", label: "Comment Posts", description: "Comment engagement", sheetUrl: "https://docs.google.com/spreadsheets/d/1y4gPlMXPCSn54FyRc3vpMSDfI-L46LqlHaxmOZacJZo", apiMode: "comment-posts", pipeline: "new" },
 ];
 
 const getCurrentDate = () => {
@@ -64,7 +64,6 @@ export default function Home() {
       return;
     }
 
-    startWorkflow(workflowMode.label);
     setIsLoading(mode);
     setError(null);
     setWarningMessage(null);
@@ -76,13 +75,37 @@ export default function Home() {
     }
 
     try {
-      const response = await fetch(WEBHOOK_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode }),
-      });
+      if (workflowMode.pipeline === "new") {
+        const response = await fetch("/api/workflows", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mode: workflowMode.apiMode }),
+        });
 
-      if (!response.ok) throw new Error("Workflow kon niet worden gestart");
+        if (response.status === 409) {
+          setError(`Er draait al een run voor ${workflowMode.label}.`);
+          return;
+        }
+        if (response.status === 429) {
+          setError(`Dagelijks limiet bereikt voor ${workflowMode.label} (${DAILY_LIMIT}/${DAILY_LIMIT}).`);
+          return;
+        }
+        if (!response.ok) throw new Error("Workflow kon niet worden gestart");
+
+        const data = await response.json();
+        if (!data.runId) throw new Error("Geen run ID ontvangen van server");
+        startWorkflow(workflowMode.label, data.runId);
+      } else {
+        const response = await fetch(WEBHOOK_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mode }),
+        });
+
+        if (!response.ok) throw new Error("Workflow kon niet worden gestart");
+
+        startWorkflow(workflowMode.label);
+      }
 
       incrementUsage(workflowMode.storageId);
       setUsageCounts(prev => ({
@@ -93,7 +116,7 @@ export default function Home() {
       navigate(createPageUrl("WorkflowActivated"));
     } catch {
       endWorkflow("");
-      setError("Er ging iets mis. Controleer de webhook URL.");
+      setError("Er ging iets mis. Controleer de verbinding.");
     } finally {
       setIsLoading(null);
     }

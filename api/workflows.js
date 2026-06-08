@@ -17,11 +17,14 @@ export default async function handler(req, res) {
   if (req.method === "GET") {
     const runId = req.query?.run_id;
     if (!runId) return res.status(400).json({ error: "Missing run_id" });
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("workflow_runs")
       .select("id, mode, status, counts, error, started_at, finished_at")
       .eq("id", runId)
       .single();
+    if (error && error.code !== "PGRST116") {
+      return res.status(500).json({ error: error.message });
+    }
     return res.status(200).json(data || { status: "unknown" });
   }
 
