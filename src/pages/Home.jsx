@@ -9,10 +9,10 @@ const WEBHOOK_URL = "https://hylkewnl.app.n8n.cloud/webhook/b77e71d3-03ea-4a2a-8
 const DAILY_LIMIT = 5;
 
 const WORKFLOW_MODES = [
-  { id: "AllPosts", storageId: "all_posts", label: "All Posts", description: "Analyseer alle posts", sheetUrl: null },
-  { id: "SpecificPosts", storageId: "specific_posts_v2", label: "Specific Posts", description: "Selectieve post analyse", sheetUrl: "https://docs.google.com/spreadsheets/d/1VUHdVrfQbsL8nYMoD1nhAq1ayFFpy77W3Eu7je1CdAc" },
-  { id: "Campaigns", storageId: "campaigns", label: "Campaigns", description: "Campaign leads", sheetUrl: "https://docs.google.com/spreadsheets/d/1UJvwFAZQJ6q_VRp3_MjphJ3bbdAp-JNhe1I08iKlxxU" },
-  { id: "CommentPosts", storageId: "comment_posts", label: "Comment Posts", description: "Comment engagement", sheetUrl: "https://docs.google.com/spreadsheets/d/1y4gPlMXPCSn54FyRc3vpMSDfI-L46LqlHaxmOZacJZo" },
+  { id: "AllPosts", storageId: "all_posts", label: "All Posts", description: "Analyseer alle posts", sheetUrl: null, apiMode: "all-posts", pipeline: "n8n" },
+  { id: "SpecificPosts", storageId: "specific_posts_v2", label: "Specific Posts", description: "Selectieve post analyse", sheetUrl: "https://docs.google.com/spreadsheets/d/1VUHdVrfQbsL8nYMoD1nhAq1ayFFpy77W3Eu7je1CdAc", apiMode: "specific-posts", pipeline: "n8n" },
+  { id: "Campaigns", storageId: "campaigns", label: "Campaigns", description: "Campaign leads", sheetUrl: "https://docs.google.com/spreadsheets/d/1UJvwFAZQJ6q_VRp3_MjphJ3bbdAp-JNhe1I08iKlxxU", apiMode: "campaigns", pipeline: "n8n" },
+  { id: "CommentPosts", storageId: "comment_posts", label: "Comment Posts", description: "Comment engagement", sheetUrl: "https://docs.google.com/spreadsheets/d/1y4gPlMXPCSn54FyRc3vpMSDfI-L46LqlHaxmOZacJZo", apiMode: "comment-posts", pipeline: "new" },
 ];
 
 const getCurrentDate = () => {
