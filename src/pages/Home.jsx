@@ -64,7 +64,6 @@ export default function Home() {
       return;
     }
 
-    startWorkflow(workflowMode.label);
     setIsLoading(mode);
     setError(null);
     setWarningMessage(null);
@@ -76,13 +75,36 @@ export default function Home() {
     }
 
     try {
-      const response = await fetch(WEBHOOK_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode }),
-      });
+      if (workflowMode.pipeline === "new") {
+        const response = await fetch("/api/workflows", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mode: workflowMode.apiMode }),
+        });
 
-      if (!response.ok) throw new Error("Workflow kon niet worden gestart");
+        if (response.status === 409) {
+          setError(`Er draait al een run voor ${workflowMode.label}.`);
+          return;
+        }
+        if (response.status === 429) {
+          setError(`Dagelijks limiet bereikt voor ${workflowMode.label} (${DAILY_LIMIT}/${DAILY_LIMIT}).`);
+          return;
+        }
+        if (!response.ok) throw new Error("Workflow kon niet worden gestart");
+
+        const data = await response.json();
+        startWorkflow(workflowMode.label, data.runId);
+      } else {
+        const response = await fetch(WEBHOOK_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mode }),
+        });
+
+        if (!response.ok) throw new Error("Workflow kon niet worden gestart");
+
+        startWorkflow(workflowMode.label);
+      }
 
       incrementUsage(workflowMode.storageId);
       setUsageCounts(prev => ({
@@ -93,7 +115,7 @@ export default function Home() {
       navigate(createPageUrl("WorkflowActivated"));
     } catch {
       endWorkflow("");
-      setError("Er ging iets mis. Controleer de webhook URL.");
+      setError("Er ging iets mis. Controleer de verbinding.");
     } finally {
       setIsLoading(null);
     }
