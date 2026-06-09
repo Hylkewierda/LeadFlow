@@ -37,13 +37,13 @@ Current pages: `Home`, `Leadfinder`, `LookalikeSearch`, `InteractionsReasoning`,
 ### State Management
 
 - **AuthContext** (`src/lib/AuthContext.jsx`) — email/password auth. Allowed users come from the `VITE_AUTH_USERS` env var (JSON array); session is persisted in `localStorage` under `leadflow_auth`.
-- **WorkflowContext** (`src/components/WorkflowContext.jsx`) — tracks the active workflow by `runId`, polls `/api/workflows?run_id=<id>` every 10s (Supabase `workflow_runs`), persists state in `localStorage`, and toasts completion counts.
+- **WorkflowContext** (`src/components/WorkflowContext.jsx`) — tracks the active workflow by `runId`, polls `/api/workflows?run_id=<id>` every 10s (Supabase `workflow_runs`), persists state in `localStorage`, and toasts completion counts. Exposes `cancelWorkflow()` (fires `DELETE /api/workflows` and keeps polling) and a `cancelling` flag; the poll ends the run with a neutral "geannuleerd" toast when status flips to `cancelled` (see Cancellation below).
 - **TanStack Query** — configured in `src/lib/query-client.js`.
 - **localStorage keys** — daily workflow limits (`limiter_{mode}_{date}`), auth session, workflow state.
 
 ### Serverless API
 
-`api/workflows.js` is a Vercel serverless function and the entry point for the 4 Home workflow modes. `POST { mode }` guards (per-mode already-running + 5/day), inserts a `workflow_runs` row, dispatches `Hylkewierda/lead-discovery-service/.github/workflows/run-workflow.yml` with `{ mode, run_id }`, and returns `{ runId }`. `GET ?run_id=<id>` returns the run's status/counts for polling. Requires `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `GITHUB_PAT`.
+`api/workflows.js` is a Vercel serverless function and the entry point for the 4 Home workflow modes. `POST { mode }` guards (per-mode already-running + 5/day), inserts a `workflow_runs` row, dispatches `Hylkewierda/lead-discovery-service/.github/workflows/run-workflow.yml` with `{ mode, run_id }`, and returns `{ runId }`. `GET ?run_id=<id>` returns the run's status/counts for polling. `DELETE ?run_id=<id>` requests cancellation (see Cancellation below). Requires `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `GITHUB_PAT`.
 
 ### External Integrations
 
@@ -54,7 +54,7 @@ Current pages: `Home`, `Leadfinder`, `LookalikeSearch`, `InteractionsReasoning`,
 
 ### Discovery pipeline (via GitHub Actions)
 
-`api/runs.js` is the SPA's entry point into the lead-discovery pipeline. POST-only. It:
+`api/runs.js` is the SPA's entry point into the lead-discovery pipeline. `POST` dispatches a run (below); `DELETE ?run_id=<id>` requests cancellation (see Cancellation below). The POST path:
 
 - Resolves `workspaceSlug` (default `"actuals"`) to a workspace id in Supabase (`workspaces.slug` → `id`); 404s if missing.
 - Refuses with 409 if a `runs` row with `status="running"` already exists for that workspace.
@@ -68,7 +68,21 @@ The actual discovery code lives in the separate `lead-discovery-service` GitHub 
 
 The `qualify-app` triage UI in `Lead_finder/` reaches the same CLI via a local `spawn` rather than GH Actions; see `Lead_finder/CLAUDE.md`.
 
-**Lookalike search** is a parallel discovery surface with the same shape. `api/lookalike-searches.js` (POST-only) resolves the workspace, inserts a `lookalike_searches` row (`status="pending"`, with `source_urls[]` + optional `feedback`, capped 500 chars), then dispatches `lead-discovery-service/.github/workflows/lookalike-search.yml` (`ref=main`) with `{workspace, search_id}`. The URLs are **not** passed through the GH inputs — the worker re-reads `source_urls` from the inserted row. Same env vars as `api/runs.js` (`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `GITHUB_PAT`).
+**Lookalike search** is a parallel discovery surface with the same shape. `api/lookalike-searches.js` resolves the workspace, inserts a `lookalike_searches` row (`status="pending"`, with `source_urls[]` + optional `feedback`, capped 500 chars), then dispatches `lead-discovery-service/.github/workflows/lookalike-search.yml` (`ref=main`) with `{workspace, search_id}`. The URLs are **not** passed through the GH inputs — the worker re-reads `source_urls` from the inserted row. `DELETE ?search_id=<id>` requests cancellation (see Cancellation below). Same env vars as `api/runs.js` (`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `GITHUB_PAT`).
+
+### Cancellation (all three dispatch paths)
+
+All three GitHub-Actions dispatch paths support **cooperative cancellation** — the SPA flags the run, and the running CLI stops itself within ~10–15s (stopping Apify + Anthropic spend), finalizing the row as `cancelled`. The pattern is identical across paths; only the table + id param differ:
+
+| Path | DELETE route | Table | Guard | UI control |
+|------|-------------|-------|-------|-----------|
+| Home modes | `DELETE /api/workflows?run_id=` | `workflow_runs` | `status='running'` | "Workflow annuleren" on `WorkflowActivated.jsx` |
+| Leadfinder | `DELETE /api/runs?run_id=` | `runs` | `status='running'` | "Annuleer run" in `components/leadfinder/RunsStrip.jsx` |
+| Lookalike | `DELETE /api/lookalike-searches?search_id=` | `lookalike_searches` | `status NOT IN (completed,failed,cancelled)` | "Zoekopdracht annuleren" in `LookalikeSearch.jsx` |
+
+How it works: the DELETE sets `cancel_requested=true` on the row (only when non-terminal; idempotent no-op otherwise, returning the current status). The CLI polls that flag (throttled) at stage checkpoints and inside its Apify poll loop, aborts the in-flight Apify actor run, stops further LLM calls, writes `status='cancelled'` (+ `cancelled_at`), and **exits 0** so the workflow's `if: failure()` step does not overwrite it. The CLI-side mechanism lives in the `lead-discovery-service` repo (`src/workflows/cancellation.ts` + per-pipeline wiring) — see `Lead_finder/CLAUDE.md`.
+
+UI observation: Home polls `/api/workflows` (10s); Leadfinder and Lookalike read status directly from Supabase (anon, 3s). Each shows a destructive cancel control only while the run is non-terminal, toggles it to "Annuleren…" (disabled) after click, and renders a neutral `cancelled`/"Geannuleerd" state once the poll observes it. The Lookalike Sheet-export latch fires only on `completed`, never on `cancelled`. The `runs.cancel_requested`/`cancelled_at`/`cancelled` status, `lookalike_searches.cancel_requested`/`cancelled_at`, and `workflow_runs` cancel columns were added by migrations `013`/`014`/`015` (`014` also widened the `runs.status` CHECK to allow `cancelled`).
 
 ### Autoresearch (Python)
 
