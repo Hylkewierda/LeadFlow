@@ -12,6 +12,29 @@ function serverSupabase() {
 }
 
 export default async function handler(req, res) {
+  const supabase = serverSupabase();
+
+  // DELETE ?run_id=<id> — request cancellation of a running discovery run.
+  if (req.method === "DELETE") {
+    const runId = req.query?.run_id;
+    if (!runId) return res.status(400).json({ error: "Missing run_id" });
+    const { data, error } = await supabase
+      .from("runs")
+      .update({ cancel_requested: true })
+      .eq("id", runId)
+      .eq("status", "running")
+      .select("id");
+    if (error) return res.status(500).json({ error: error.message });
+    if ((data ?? []).length > 0) return res.status(200).json({ status: "cancelling" });
+    // Not running (already terminal or unknown) — idempotent no-op.
+    const current = await supabase
+      .from("runs")
+      .select("status")
+      .eq("id", runId)
+      .single();
+    return res.status(200).json({ status: current.data?.status ?? "unknown" });
+  }
+
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
@@ -26,8 +49,6 @@ export default async function handler(req, res) {
         .map((u) => u.trim())
         .slice(0, MAX_POSTS)
     : [];
-
-  const supabase = serverSupabase();
 
   const ws = await supabase
     .from("workspaces")

@@ -8,6 +8,7 @@ import {
   resetCandidate,
   listRecentRuns,
   startRun,
+  cancelRun,
 } from "@/lib/leadfinder/data.js";
 import { CandidateCard } from "@/components/leadfinder/CandidateCard.jsx";
 import { StatusFilter } from "@/components/leadfinder/StatusFilter.jsx";
@@ -38,6 +39,7 @@ export default function Leadfinder() {
   const [statuses, setStatuses] = useState(["new", "rediscovered"]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
+  const [cancelling, setCancelling] = useState(false);
 
   const isRunning = useMemo(() => runs.some((r) => r.status === "running"), [runs]);
 
@@ -72,6 +74,10 @@ export default function Leadfinder() {
     }, 3000);
     return () => clearInterval(id);
   }, [isRunning, reload]);
+
+  useEffect(() => {
+    if (!isRunning) setCancelling(false);
+  }, [isRunning]);
 
   const counts = useMemo(() => {
     const acc = { new: 0, rediscovered: 0, qualified: 0, disqualified: 0 };
@@ -112,6 +118,17 @@ export default function Leadfinder() {
       await reload();
     } catch (err) {
       alert(`Kon geen run starten: ${err.message}`);
+    }
+  }
+  async function handleCancelRun() {
+    const running = runs.find((r) => r.status === "running");
+    if (!running) return;
+    setCancelling(true);
+    try {
+      await cancelRun(running.id);
+    } catch (err) {
+      console.error("cancelRun failed:", err);
+      setCancelling(false);
     }
   }
   async function handleScrapePosts(urls) {
@@ -176,7 +193,7 @@ export default function Leadfinder() {
         ) : (
           <>
             <motion.div variants={item}>
-              <RunsStrip runs={runs} isRunning={isRunning} onStart={handleStartRun} />
+              <RunsStrip runs={runs} isRunning={isRunning} onStart={handleStartRun} onCancel={handleCancelRun} cancelling={cancelling} />
             </motion.div>
             <motion.div variants={item}>
               <PostScrapeCard isRunning={isRunning} onScrape={handleScrapePosts} />

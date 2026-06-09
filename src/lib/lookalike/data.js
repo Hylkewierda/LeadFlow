@@ -35,6 +35,13 @@ export async function getLookalikeSearch(id) {
   return data;
 }
 
+/** Cancel a non-terminal lookalike search. Flags it for cancellation; the running CLI self-cancels and the row flips to status='cancelled'. */
+export async function cancelLookalikeSearch(searchId) {
+  const res = await fetch(`/api/lookalike-searches?search_id=${encodeURIComponent(searchId)}`, { method: "DELETE" });
+  if (!res.ok) throw new Error(`cancelLookalikeSearch failed: ${res.status}`);
+  return res.json();
+}
+
 /** Trigger the export of finished lookalike candidates to the lookalike Sheet. */
 export async function exportLookalikeSearchToSheet(searchId) {
   const resp = await fetch("/api/export-lookalike-to-sheet", {
