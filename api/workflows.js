@@ -19,13 +19,34 @@ export default async function handler(req, res) {
     if (!runId) return res.status(400).json({ error: "Missing run_id" });
     const { data, error } = await supabase
       .from("workflow_runs")
-      .select("id, mode, status, counts, error, started_at, finished_at")
+      .select("id, mode, status, counts, error, started_at, finished_at, cancelled_at")
       .eq("id", runId)
       .single();
     if (error && error.code !== "PGRST116") {
       return res.status(500).json({ error: error.message });
     }
     return res.status(200).json(data || { status: "unknown" });
+  }
+
+  // DELETE ?run_id=<id> — request cancellation of a running workflow.
+  if (req.method === "DELETE") {
+    const runId = req.query?.run_id;
+    if (!runId) return res.status(400).json({ error: "Missing run_id" });
+    const { data, error } = await supabase
+      .from("workflow_runs")
+      .update({ cancel_requested: true })
+      .eq("id", runId)
+      .eq("status", "running")
+      .select("id");
+    if (error) return res.status(500).json({ error: error.message });
+    if ((data ?? []).length > 0) return res.status(200).json({ status: "cancelling" });
+    // Not running (already terminal or unknown) — idempotent no-op.
+    const current = await supabase
+      .from("workflow_runs")
+      .select("status")
+      .eq("id", runId)
+      .single();
+    return res.status(200).json({ status: current.data?.status ?? "unknown" });
   }
 
   if (req.method !== "POST") {

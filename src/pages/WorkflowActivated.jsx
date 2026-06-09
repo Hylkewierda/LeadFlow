@@ -1,16 +1,15 @@
 import { CheckCircle2, ArrowLeft, XCircle } from "lucide-react";
 import { motion } from "framer-motion";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { createPageUrl } from "../utils";
 import { useWorkflow } from "../components/WorkflowContext";
 
 export default function WorkflowActivated() {
-  const { workflowRunning, activeWorkflowName, endWorkflow } = useWorkflow();
-  const navigate = useNavigate();
+  const { workflowRunning, activeWorkflowName, cancelling, cancelWorkflow } = useWorkflow();
 
   const handleCancel = () => {
-    endWorkflow("");
-    navigate(createPageUrl("Home"));
+    cancelWorkflow();
+    // Stay on this page; the button shows "Annuleren…" until polling confirms cancelled.
   };
 
   return (
@@ -79,10 +78,11 @@ export default function WorkflowActivated() {
             {workflowRunning && (
               <button
                 onClick={handleCancel}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-[12px] font-medium text-destructive hover:bg-destructive/8 transition-all duration-200 active:scale-[0.98]"
+                disabled={cancelling}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-[12px] font-medium text-destructive hover:bg-destructive/8 transition-all duration-200 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <XCircle className="w-3.5 h-3.5" />
-                Workflow annuleren
+                {cancelling ? "Annuleren…" : "Workflow annuleren"}
               </button>
             )}
           </motion.div>

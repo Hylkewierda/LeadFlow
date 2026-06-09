@@ -23,6 +23,7 @@ export function WorkflowProvider({ children }) {
   const initial = loadState();
   const [workflowRunning, setWorkflowRunning] = useState(initial.workflowRunning);
   const [activeWorkflowName, setActiveWorkflowName] = useState(initial.activeWorkflowName);
+  const [cancelling, setCancelling] = useState(false);
   const activeNameRef = useRef(initial.activeWorkflowName);
   const runIdRef = useRef(initial.runId);
   const pollRef = useRef(null);
@@ -40,7 +41,11 @@ export function WorkflowProvider({ children }) {
       pollRef.current = null;
     }
 
-    if (result && result.failed) {
+    setCancelling(false);
+
+    if (result && result.cancelled) {
+      toast(`${name || "Workflow"} geannuleerd`);
+    } else if (result && result.failed) {
       toast.error(`${name || "Workflow"} is mislukt${result.error ? `: ${result.error}` : ""}`);
     } else if (name) {
       const added = result && typeof result.appended === "number" ? result.appended : null;
@@ -65,6 +70,8 @@ export function WorkflowProvider({ children }) {
         endWorkflow(name, { appended: data.counts?.appended });
       } else if (data.status === "failed") {
         endWorkflow(name, { failed: true, error: data.error });
+      } else if (data.status === "cancelled") {
+        endWorkflow(name, { cancelled: true });
       }
     } catch {
       // Silently ignore poll errors
@@ -95,8 +102,20 @@ export function WorkflowProvider({ children }) {
     saveState({ workflowRunning: true, activeWorkflowName: name, runId });
   };
 
+  const cancelWorkflow = useCallback(async () => {
+    const runId = runIdRef.current;
+    if (!runId) return;
+    setCancelling(true);
+    try {
+      await fetch(`/api/workflows?run_id=${encodeURIComponent(runId)}`, { method: "DELETE" });
+    } catch {
+      // ignore; the poll loop will still observe a cancelled status if it lands
+    }
+    // Intentionally keep polling — endWorkflow fires when status flips to "cancelled".
+  }, []);
+
   return (
-    <WorkflowContext.Provider value={{ workflowRunning, activeWorkflowName, startWorkflow, endWorkflow }}>
+    <WorkflowContext.Provider value={{ workflowRunning, activeWorkflowName, cancelling, startWorkflow, endWorkflow, cancelWorkflow }}>
       {children}
     </WorkflowContext.Provider>
   );
