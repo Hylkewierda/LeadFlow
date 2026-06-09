@@ -21,10 +21,32 @@ function normalizeUrls(urls) {
 
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Methods", "POST, DELETE, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
   if (req.method === "OPTIONS") return res.status(204).end();
+
+  if (req.method === "DELETE") {
+    const searchId = req.query?.search_id;
+    if (!searchId) return res.status(400).json({ error: "Missing search_id" });
+    const supabase = serverSupabase();
+    const { data, error } = await supabase
+      .from("lookalike_searches")
+      .update({ cancel_requested: true })
+      .eq("id", searchId)
+      .not("status", "in", "(completed,failed,cancelled)")
+      .select("id");
+    if (error) return res.status(500).json({ error: error.message });
+    if ((data ?? []).length > 0) return res.status(200).json({ status: "cancelling" });
+    // Already terminal or unknown — idempotent no-op; return current status.
+    const current = await supabase
+      .from("lookalike_searches")
+      .select("status")
+      .eq("id", searchId)
+      .single();
+    return res.status(200).json({ status: current.data?.status ?? "unknown" });
+  }
+
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
