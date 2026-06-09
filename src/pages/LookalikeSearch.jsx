@@ -12,6 +12,7 @@ import {
 import {
   startLookalikeSearch,
   getLookalikeSearch,
+  cancelLookalikeSearch,
   exportLookalikeSearchToSheet,
   LOOKALIKE_SHEET_URL,
 } from "@/lib/lookalike/data.js";
@@ -84,6 +85,7 @@ export default function LookalikeSearch() {
   const [feedback, setFeedback] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState(null);
+  const [cancelling, setCancelling] = useState(false);
 
   const [activeSearchId, setActiveSearchId] = useState(() => localStorage.getItem(STORAGE_KEY));
   const [search, setSearch] = useState(null);
@@ -194,9 +196,26 @@ export default function LookalikeSearch() {
   }, [activeSearchId]);
 
   const isTerminal = useMemo(
-    () => search && (search.status === "completed" || search.status === "failed"),
+    () => search && (search.status === "completed" || search.status === "failed" || search.status === "cancelled"),
     [search],
   );
+
+  // Reset the cancelling spinner once we reach any terminal state.
+  useEffect(() => {
+    if (isTerminal) setCancelling(false);
+  }, [isTerminal]);
+
+  const handleCancel = useCallback(async () => {
+    if (!activeSearchId || cancelling) return;
+    setCancelling(true);
+    try {
+      await cancelLookalikeSearch(activeSearchId);
+      // The 3s poll will observe the status flipping to "cancelled" and stop.
+    } catch (e) {
+      console.error("cancelLookalikeSearch error:", e);
+      setCancelling(false);
+    }
+  }, [activeSearchId, cancelling]);
 
   return (
     <div className="flex flex-col items-center px-4 sm:px-6 pt-6 pb-8">
@@ -336,6 +355,10 @@ export default function LookalikeSearch() {
                     <span className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-2.5 py-0.5 text-[11px] font-semibold text-red-700">
                       <XCircle className="h-3.5 w-3.5" /> failed
                     </span>
+                  ) : search.status === "cancelled" ? (
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-0.5 text-[11px] font-semibold text-muted-foreground">
+                      <XCircle className="h-3.5 w-3.5" /> Geannuleerd
+                    </span>
                   ) : (
                     <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700">
                       {search.status === "completed" ? (
@@ -353,6 +376,20 @@ export default function LookalikeSearch() {
                     <StageRow key={stg.key} stage={stg} currentStatus={search.status} />
                   ))}
                 </div>
+
+                {/* Cancel control — only while non-terminal */}
+                {!isTerminal && activeSearchId && (
+                  <div className="mb-4 flex justify-start">
+                    <button
+                      onClick={handleCancel}
+                      disabled={cancelling}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-[12px] font-medium text-destructive hover:bg-destructive/8 transition-all duration-200 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <XCircle className="h-3.5 w-3.5" />
+                      {cancelling ? "Annuleren…" : "Zoekopdracht annuleren"}
+                    </button>
+                  </div>
+                )}
 
                 {/* Counts (populated mid-run + final) */}
                 {(search.candidates_found > 0 || search.candidates_qualified > 0) && (
