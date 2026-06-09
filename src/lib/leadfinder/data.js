@@ -156,6 +156,12 @@ export async function startRun(manualPosts = []) {
   return res.json();
 }
 
+export async function cancelRun(runId) {
+  const res = await fetch(`/api/runs?run_id=${encodeURIComponent(runId)}`, { method: "DELETE" });
+  if (!res.ok) throw new Error(`cancelRun failed: ${res.status}`);
+  return res.json();
+}
+
 export async function getScopeSteering() {
   const supabase = browserSupabase();
   const { data, error } = await supabase

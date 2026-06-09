@@ -1,7 +1,7 @@
 import { formatRelative } from "@/lib/leadfinder/format";
-import { CheckCircle2, CircleAlert, Loader2, Play } from "lucide-react";
+import { CheckCircle2, CircleAlert, Loader2, Play, XCircle } from "lucide-react";
 
-export function RunsStrip({ runs, isRunning, onStart }) {
+export function RunsStrip({ runs, isRunning, onStart, onCancel, cancelling }) {
   return (
     <div className="glass-card flex items-center gap-3 px-4 py-3 text-sm">
       <button
@@ -22,6 +22,17 @@ export function RunsStrip({ runs, isRunning, onStart }) {
           </>
         )}
       </button>
+      {isRunning && (
+        <button
+          type="button"
+          onClick={onCancel}
+          disabled={cancelling}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium text-destructive hover:bg-destructive/8 transition-all duration-200 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <XCircle className="w-3.5 h-3.5" aria-hidden />
+          {cancelling ? "Annuleren…" : "Annuleer run"}
+        </button>
+      )}
       {runs.length === 0 ? (
         <span className="text-xs text-slate-400">
           No runs yet. Click &quot;Start run&quot; to discover candidates.
@@ -38,14 +49,20 @@ export function RunsStrip({ runs, isRunning, onStart }) {
                   ? CheckCircle2
                   : r.status === "failed"
                     ? CircleAlert
-                    : Loader2;
+                    : r.status === "cancelled"
+                      ? XCircle
+                      : Loader2;
               const tone =
                 r.status === "completed"
                   ? "text-emerald-600"
                   : r.status === "failed"
                     ? "text-rose-600"
-                    : "text-slate-500";
+                    : r.status === "cancelled"
+                      ? "text-slate-400"
+                      : "text-slate-500";
               const spin = r.status === "running" ? "animate-spin" : "";
+              const label =
+                r.status === "cancelled" ? "Geannuleerd" : null;
               return (
                 <div
                   key={r.id}
@@ -55,7 +72,10 @@ export function RunsStrip({ runs, isRunning, onStart }) {
                   <span className="font-medium text-slate-700">
                     {formatRelative(r.started_at)}
                   </span>
-                  {r.counts && (
+                  {label && (
+                    <span className="text-slate-400">{label}</span>
+                  )}
+                  {!label && r.counts && (
                     <span className="text-slate-500">
                       {r.counts.inserted} new · {r.counts.deduped} unique
                     </span>
