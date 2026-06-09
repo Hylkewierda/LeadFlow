@@ -9,6 +9,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `npm run lint` / `npm run lint:fix` — ESLint (flat config in `eslint.config.js`)
 - `npm run typecheck` — Type-check JS via `tsc -p ./jsconfig.json`
 - `npm run preview` — Preview production build locally
+- `npm run test` — Run the Vitest suite once (`vitest run`); config in `vitest.config.js`
+- `npm run test:watch` — Vitest in watch mode
+
+Tests live in `tests/` and cover the serverless API handlers (`api-runs.test.js`, `workflows.test.js`) by mocking `@supabase/supabase-js` and the GitHub dispatch `fetch`. Run a single file with `npx vitest run tests/workflows.test.js`.
 
 Stack: React 18 + Vite 6, React Router v6, Tailwind 3, Radix UI / shadcn-style components, Framer Motion, TanStack Query v5, Upstash Redis (serverless), `react-hook-form` + `zod`.
 
@@ -20,9 +24,11 @@ LeadFlow is a mobile-first React SPA for B2B lead qualification. It triggers n8n
 
 Pages live in `src/pages/` and are auto-registered in `src/pages.config.js` — **this file is auto-generated; only `mainPage` is editable**. Routes come from `createPageUrl()` in `src/utils/index.ts`, which lowercases PascalCase page names (e.g., `SendMessage` → `/sendmessage`). `App.jsx` wraps everything in `AuthProvider` → `QueryClientProvider` → `Router` → `Layout`. `Login` is rendered before auth and is intentionally absent from `pages.config.js`.
 
-Current pages: `Home`, `Leadfinder`, `InteractionsReasoning`, `MaybeLeads`, `SendMessage`, `ClientDatabase`, `Guide`, `WorkflowActivated`, `Login`.
+Current pages: `Home`, `Leadfinder`, `LookalikeSearch`, `InteractionsReasoning`, `MaybeLeads`, `SendMessage`, `ClientDatabase`, `Guide`, `WorkflowActivated`, `Login`.
 
 `Leadfinder` is reachable only via a clickable card on `Home` (lines ~217–235 of `Home.jsx`), **not** via `NAV_ITEMS`. It's a triage view that mirrors `Lead_finder/qualify-app/`'s component set in three sibling directories: `src/pages/Leadfinder.jsx`, `src/components/leadfinder/`, and `src/lib/leadfinder/`. **Drift risk:** changes to qualify-app's TS components do not propagate to these JSX mirrors automatically. If you're touching candidate-card / runs-strip / score-pill logic, check both places.
+
+`LookalikeSearch` is also reached only via a `Home` card (`Home.jsx` ~line 266, `navigate(createPageUrl("LookalikeSearch"))`), not `NAV_ITEMS`. The user pastes 1+ LinkedIn profile URLs as anchors; the worker finds lookalike profiles, scores them, and the page exports results to a Sheet. It is **SPA-only** — no `qualify-app` twin, so there's no mirror to keep in sync. Its files are `src/pages/LookalikeSearch.jsx` and `src/lib/lookalike/data.js` (no `src/components/lookalike/`). The page polls a `lookalike_searches` row and walks the fixed stage list `pending → scraping → generating_playbook → searching → scoring → completed`; it latches the one-shot Sheet export per search id in localStorage (`lookalike_export_fired_{id}`).
 
 ### Layout & Navigation
 
@@ -61,6 +67,8 @@ Required env vars: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `GITHUB_PAT`.
 The actual discovery code lives in the separate `lead-discovery-service` GitHub repo — the SPA only dispatches it, never imports it. The CLI writes results back to the same Supabase `runs` row by `run_id`.
 
 The `qualify-app` triage UI in `Lead_finder/` reaches the same CLI via a local `spawn` rather than GH Actions; see `Lead_finder/CLAUDE.md`.
+
+**Lookalike search** is a parallel discovery surface with the same shape. `api/lookalike-searches.js` (POST-only) resolves the workspace, inserts a `lookalike_searches` row (`status="pending"`, with `source_urls[]` + optional `feedback`, capped 500 chars), then dispatches `lead-discovery-service/.github/workflows/lookalike-search.yml` (`ref=main`) with `{workspace, search_id}`. The URLs are **not** passed through the GH inputs — the worker re-reads `source_urls` from the inserted row. Same env vars as `api/runs.js` (`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `GITHUB_PAT`).
 
 ### Autoresearch (Python)
 
