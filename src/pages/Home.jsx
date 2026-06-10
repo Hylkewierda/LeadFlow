@@ -177,12 +177,12 @@ export default function Home() {
                           disabled={isDisabled || !urlValid}
                           aria-label={`Start ${mode.label}`}
                           className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-300 ${
-                            isLimitReached ? "bg-muted" : isDisabled || !urlValid ? "bg-foreground/[0.06] cursor-not-allowed" : "bg-foreground/[0.06] hover:bg-accent hover:accent-glow cursor-pointer group/start"
+                            isLimitReached ? "bg-muted" : isDisabled || !urlValid ? "bg-foreground/[0.06] cursor-not-allowed" : "group/start bg-foreground/[0.06] hover:bg-accent hover:accent-glow cursor-pointer"
                           }`}
                         >
                           {isLimitReached ? <Lock className="w-4 h-4 text-muted-foreground" />
                             : isLoading === mode.id ? <Loader2 className="w-4 h-4 animate-spin text-foreground" />
-                            : <Zap className={`w-4 h-4 ${isDisabled || !urlValid ? "text-muted-foreground" : "text-foreground/60"}`} />}
+                            : <Zap className={`w-4 h-4 transition-colors duration-300 ${isDisabled || !urlValid ? "text-muted-foreground" : "text-foreground/60 group-hover/start:text-white"}`} />}
                         </button>
                       </div>
                       <input
