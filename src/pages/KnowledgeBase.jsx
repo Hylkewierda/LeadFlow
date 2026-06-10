@@ -66,7 +66,7 @@ export default function KnowledgeBase() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ op: "quick-update", note: note.trim(), ...(category ? { category } : {}) }),
       });
-      const data = await r.json();
+      const data = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(data.error || "Opslaan mislukt");
       setNote("");
       setCategory("");
@@ -84,7 +84,7 @@ export default function KnowledgeBase() {
     setFileMessage(null);
     try {
       const r = await fetch(`/api/kb?op=file&path=${encodeURIComponent(path)}`);
-      const data = await r.json();
+      const data = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(data.error || "Kon bestand niet openen");
       setSelected(data);
       setEditText(data.content);
@@ -104,7 +104,14 @@ export default function KnowledgeBase() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ path: selected.path, content: editText, sha: selected.sha }),
       });
-      const data = await r.json();
+      const data = await r.json().catch(() => ({}));
+      if (r.status === 409) {
+        // Conflict: refetch the latest sha so a retry can succeed; keep the user's edit.
+        const cur = await fetch(`/api/kb?op=file&path=${encodeURIComponent(selected.path)}`);
+        const curData = await cur.json().catch(() => ({}));
+        if (cur.ok) setSelected(curData);
+        throw new Error("Bestand was intussen gewijzigd — nieuwste versie opgehaald; opnieuw opslaan overschrijft die.");
+      }
       if (!r.ok) throw new Error(data.error || "Opslaan mislukt");
       setSelected({ ...selected, sha: data.sha, content: editText });
       setFileMessage({ ok: true, text: "Opgeslagen — live vanaf de eerstvolgende run." });
@@ -128,7 +135,7 @@ export default function KnowledgeBase() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ op: "create", path, content }),
       });
-      const data = await r.json();
+      const data = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(data.error || "Aanmaken mislukt");
       setNewName("");
       await loadTree();
