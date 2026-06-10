@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Search, Radar, FileSpreadsheet, ExternalLink, Loader2, SearchX } from "lucide-react";
+import { Search, Radar, FileSpreadsheet, ExternalLink, Loader2, SearchX, BookOpen } from "lucide-react";
+import { createPageUrl } from "../utils";
 import {
   listCandidates,
   qualifyCandidate,
@@ -34,6 +36,7 @@ const item = {
 };
 
 export default function Leadfinder() {
+  const navigate = useNavigate();
   const [candidates, setCandidates] = useState([]);
   const [runs, setRuns] = useState([]);
   const [statuses, setStatuses] = useState(["new", "rediscovered"]);
@@ -204,6 +207,23 @@ export default function Leadfinder() {
 
             <motion.div variants={item}>
               <ScopeSteeringCard />
+            </motion.div>
+
+            <motion.div variants={item}>
+              <button
+                onClick={() => navigate(createPageUrl("KnowledgeBase"))}
+                className="w-full glass-card rounded-2xl p-4 flex items-center justify-between text-left transition-all duration-300 hover:shadow-lg hover:scale-[1.01] active:scale-[0.99] group"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-foreground/[0.06] flex items-center justify-center group-hover:bg-accent transition-colors">
+                    <BookOpen className="w-4 h-4 text-foreground/60 group-hover:text-white transition-colors" />
+                  </div>
+                  <div>
+                    <h3 className="text-[15px] font-semibold text-foreground">Knowledge base</h3>
+                    <p className="text-[12px] text-muted-foreground mt-0.5">Scherp aan wat de leadfinder over Actuals weet</p>
+                  </div>
+                </div>
+              </button>
             </motion.div>
 
             <motion.div

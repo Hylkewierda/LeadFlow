@@ -2,6 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 
 const VALID_MODES = ["all-posts", "specific-posts", "campaigns", "comment-posts", "stub"];
 const DAILY_LIMIT = 5;
+const ACCOUNT_URL_RE = /^https:\/\/(www\.)?linkedin\.com\/(company|in)\/[^/?#]+/i;
 
 function serverSupabase() {
   const url = process.env.SUPABASE_URL;
@@ -58,6 +59,14 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: `Unknown mode "${mode}"` });
   }
 
+  let accountUrl = null;
+  if (req.body?.accountUrl != null && String(req.body.accountUrl).trim() !== "") {
+    accountUrl = String(req.body.accountUrl).trim();
+    if (!ACCOUNT_URL_RE.test(accountUrl)) {
+      return res.status(400).json({ error: "accountUrl must be a linkedin.com/company/... or linkedin.com/in/... URL" });
+    }
+  }
+
   // Guard 1: no run for this mode already in progress.
   const running = await supabase
     .from("workflow_runs")
@@ -87,7 +96,15 @@ export default async function handler(req, res) {
 
   const inserted = await supabase
     .from("workflow_runs")
-    .insert({ mode, status: "running", triggered_by: "cloud-ui", counts: {} })
+    .insert({
+      mode,
+      status: "running",
+      triggered_by: "cloud-ui",
+      counts: {},
+      // Only include input_url when set: keeps the other modes working even if
+      // migration 016 (which adds the column) hasn't been applied yet.
+      ...(accountUrl ? { input_url: accountUrl } : {}),
+    })
     .select("id")
     .single();
   if (!inserted.data) {
@@ -104,7 +121,7 @@ export default async function handler(req, res) {
         "X-GitHub-Api-Version": "2022-11-28",
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ ref: "main", inputs: { mode, run_id: inserted.data.id } }),
+      body: JSON.stringify({ ref: "main", inputs: { mode, run_id: inserted.data.id, account_url: accountUrl ?? "" } }),
     },
   );
 

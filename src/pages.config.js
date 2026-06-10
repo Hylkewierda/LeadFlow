@@ -51,6 +51,7 @@ import ClientDatabase from './pages/ClientDatabase';
 import Guide from './pages/Guide';
 import Home from './pages/Home';
 import InteractionsReasoning from './pages/InteractionsReasoning';
+import KnowledgeBase from './pages/KnowledgeBase';
 import Leadfinder from './pages/Leadfinder';
 import LookalikeSearch from './pages/LookalikeSearch';
 import MaybeLeads from './pages/MaybeLeads';
@@ -64,6 +65,7 @@ export const PAGES = {
     "Guide": Guide,
     "Home": Home,
     "InteractionsReasoning": InteractionsReasoning,
+    "KnowledgeBase": KnowledgeBase,
     "Leadfinder": Leadfinder,
     "LookalikeSearch": LookalikeSearch,
     "MaybeLeads": MaybeLeads,

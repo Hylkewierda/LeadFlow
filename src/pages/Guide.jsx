@@ -75,12 +75,12 @@ const SECTIONS = [
         <div className="mt-4 space-y-2.5">
           {[
             {
-              name: "All Posts",
-              desc: "Analyseert alle recente LinkedIn posts en verzamelt profielen van mensen die geïnterageerd hebben.",
+              name: "Account posts",
+              desc: "Vul de URL in van een LinkedIn-account (bedrijfspagina of persoonlijk profiel) en analyseer wie er op de posts reageert.",
             },
             {
-              name: "Specific Posts",
-              desc: "Analyseer alleen specifieke posts die je hebt toegevoegd aan de bijbehorende Google Sheet.",
+              name: "Coming from other profiles",
+              desc: "Analyseer alleen specifieke posts van andere profielen die je hebt toegevoegd aan de bijbehorende Google Sheet.",
             },
             {
               name: "Campaigns",

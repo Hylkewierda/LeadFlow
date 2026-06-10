@@ -8,11 +8,13 @@ import { useWorkflow } from "../components/WorkflowContext";
 const DAILY_LIMIT = 5;
 
 const WORKFLOW_MODES = [
-  { id: "AllPosts", storageId: "all_posts", label: "All Posts", description: "Analyseer alle posts", sheetUrl: null, apiMode: "all-posts" },
-  { id: "SpecificPosts", storageId: "specific_posts_v2", label: "Specific Posts", description: "Selectieve post analyse", sheetUrl: "https://docs.google.com/spreadsheets/d/1VUHdVrfQbsL8nYMoD1nhAq1ayFFpy77W3Eu7je1CdAc", apiMode: "specific-posts" },
+  { id: "AllPosts", storageId: "all_posts", label: "Account posts", description: "Scrape de posts van een LinkedIn-account", sheetUrl: null, apiMode: "all-posts", requiresUrl: true },
+  { id: "SpecificPosts", storageId: "specific_posts_v2", label: "Coming from other profiles", description: "Posts van andere profielen analyseren", sheetUrl: "https://docs.google.com/spreadsheets/d/1VUHdVrfQbsL8nYMoD1nhAq1ayFFpy77W3Eu7je1CdAc", apiMode: "specific-posts" },
   { id: "Campaigns", storageId: "campaigns", label: "Campaigns", description: "Campaign leads", sheetUrl: "https://docs.google.com/spreadsheets/d/1UJvwFAZQJ6q_VRp3_MjphJ3bbdAp-JNhe1I08iKlxxU", apiMode: "campaigns" },
   { id: "CommentPosts", storageId: "comment_posts", label: "Comment Posts", description: "Comment engagement", sheetUrl: "https://docs.google.com/spreadsheets/d/1y4gPlMXPCSn54FyRc3vpMSDfI-L46LqlHaxmOZacJZo", apiMode: "comment-posts" },
 ];
+
+const ACCOUNT_URL_RE = /^https:\/\/(www\.)?linkedin\.com\/(company|in)\/[^/?#]+/i;
 
 const getCurrentDate = () => {
   const d = new Date();
@@ -44,6 +46,7 @@ export default function Home() {
   const [error, setError] = useState(null);
   const [warningMessage, setWarningMessage] = useState(null);
   const [usageCounts, setUsageCounts] = useState({});
+  const [accountUrl, setAccountUrl] = useState("");
 
   useEffect(() => {
     cleanupOldDays();
@@ -77,7 +80,10 @@ export default function Home() {
       const response = await fetch("/api/workflows", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: workflowMode.apiMode }),
+        body: JSON.stringify({
+          mode: workflowMode.apiMode,
+          ...(workflowMode.requiresUrl ? { accountUrl: accountUrl.trim() } : {}),
+        }),
       });
 
       if (response.status === 409) {
@@ -148,6 +154,7 @@ export default function Home() {
             const isLimitReached = usage >= DAILY_LIMIT;
             const isDisabled = isLoading !== null || isLimitReached || workflowRunning;
             const progress = (usage / DAILY_LIMIT) * 100;
+            const urlValid = !mode.requiresUrl || ACCOUNT_URL_RE.test(accountUrl.trim());
 
             return (
               <motion.div
@@ -157,55 +164,102 @@ export default function Home() {
                 transition={{ delay: index * 0.08, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
               >
                 <div className="flex gap-2.5">
-                  {/* Main workflow button */}
-                  <button
-                    onClick={() => triggerWorkflow(mode.id)}
-                    disabled={isDisabled}
-                    className={`flex-1 glass-card rounded-2xl p-4 text-left transition-all duration-300 group ${
-                      isDisabled
-                        ? 'opacity-50 cursor-not-allowed'
-                        : 'hover:shadow-lg hover:scale-[1.01] active:scale-[0.99] cursor-pointer'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-3">
-                      <div>
-                        <h3 className="text-[15px] font-semibold text-foreground">{mode.label}</h3>
-                        <p className="text-[12px] text-muted-foreground mt-0.5">{mode.description}</p>
-                      </div>
-                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-300 ${
-                        isLimitReached
-                          ? 'bg-muted'
-                          : 'bg-foreground/[0.06] group-hover:bg-accent group-hover:accent-glow'
-                      }`}>
-                        {isLimitReached ? (
-                          <Lock className="w-4 h-4 text-muted-foreground" />
-                        ) : isLoading === mode.id ? (
-                          <Loader2 className="w-4 h-4 animate-spin text-foreground" />
-                        ) : (
-                          <Zap className={`w-4 h-4 transition-colors duration-300 ${
-                            isDisabled ? 'text-muted-foreground' : 'text-foreground/60 group-hover:text-white'
-                          }`} />
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Progress bar */}
-                    <div className="flex items-center gap-2.5">
-                      <div className="flex-1 h-1.5 bg-foreground/[0.06] rounded-full overflow-hidden">
-                        <motion.div
-                          className={`h-full rounded-full ${
-                            isLimitReached ? 'bg-destructive/60' : 'bg-accent'
+                  {/* Main workflow card */}
+                  {mode.requiresUrl ? (
+                    <div className={`flex-1 glass-card rounded-2xl p-4 text-left transition-all duration-300 ${isDisabled ? "opacity-50" : ""}`}>
+                      <div className="flex items-center justify-between mb-3">
+                        <div>
+                          <h3 className="text-[15px] font-semibold text-foreground">{mode.label}</h3>
+                          <p className="text-[12px] text-muted-foreground mt-0.5">{mode.description}</p>
+                        </div>
+                        <button
+                          onClick={() => triggerWorkflow(mode.id)}
+                          disabled={isDisabled || !urlValid}
+                          aria-label={`Start ${mode.label}`}
+                          className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-300 ${
+                            isLimitReached ? "bg-muted" : isDisabled || !urlValid ? "bg-foreground/[0.06] cursor-not-allowed" : "group/start bg-foreground/[0.06] hover:bg-accent hover:accent-glow cursor-pointer"
                           }`}
-                          initial={{ width: 0 }}
-                          animate={{ width: `${progress}%` }}
-                          transition={{ delay: index * 0.08 + 0.3, duration: 0.6, ease: "easeOut" }}
-                        />
+                        >
+                          {isLimitReached ? <Lock className="w-4 h-4 text-muted-foreground" />
+                            : isLoading === mode.id ? <Loader2 className="w-4 h-4 animate-spin text-foreground" />
+                            : <Zap className={`w-4 h-4 transition-colors duration-300 ${isDisabled || !urlValid ? "text-muted-foreground" : "text-foreground/60 group-hover/start:text-white"}`} />}
+                        </button>
                       </div>
-                      <span className="text-[11px] font-medium text-muted-foreground tabular-nums">
-                        {usage}/{DAILY_LIMIT}
-                      </span>
+                      <input
+                        type="url"
+                        value={accountUrl}
+                        onChange={(e) => setAccountUrl(e.target.value)}
+                        disabled={isDisabled}
+                        placeholder="Vul URL in van het account dat je wil scrapen"
+                        className="w-full mb-3 px-3 py-2 rounded-xl bg-foreground/[0.04] border border-foreground/[0.08] text-[13px] text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-accent transition-colors"
+                      />
+                      {/* Progress bar */}
+                      <div className="flex items-center gap-2.5">
+                        <div className="flex-1 h-1.5 bg-foreground/[0.06] rounded-full overflow-hidden">
+                          <motion.div
+                            className={`h-full rounded-full ${
+                              isLimitReached ? 'bg-destructive/60' : 'bg-accent'
+                            }`}
+                            initial={{ width: 0 }}
+                            animate={{ width: `${progress}%` }}
+                            transition={{ delay: index * 0.08 + 0.3, duration: 0.6, ease: "easeOut" }}
+                          />
+                        </div>
+                        <span className="text-[11px] font-medium text-muted-foreground tabular-nums">
+                          {usage}/{DAILY_LIMIT}
+                        </span>
+                      </div>
                     </div>
-                  </button>
+                  ) : (
+                    <button
+                      onClick={() => triggerWorkflow(mode.id)}
+                      disabled={isDisabled}
+                      className={`flex-1 glass-card rounded-2xl p-4 text-left transition-all duration-300 group ${
+                        isDisabled
+                          ? 'opacity-50 cursor-not-allowed'
+                          : 'hover:shadow-lg hover:scale-[1.01] active:scale-[0.99] cursor-pointer'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-3">
+                        <div>
+                          <h3 className="text-[15px] font-semibold text-foreground">{mode.label}</h3>
+                          <p className="text-[12px] text-muted-foreground mt-0.5">{mode.description}</p>
+                        </div>
+                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-300 ${
+                          isLimitReached
+                            ? 'bg-muted'
+                            : 'bg-foreground/[0.06] group-hover:bg-accent group-hover:accent-glow'
+                        }`}>
+                          {isLimitReached ? (
+                            <Lock className="w-4 h-4 text-muted-foreground" />
+                          ) : isLoading === mode.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin text-foreground" />
+                          ) : (
+                            <Zap className={`w-4 h-4 transition-colors duration-300 ${
+                              isDisabled ? 'text-muted-foreground' : 'text-foreground/60 group-hover:text-white'
+                            }`} />
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Progress bar */}
+                      <div className="flex items-center gap-2.5">
+                        <div className="flex-1 h-1.5 bg-foreground/[0.06] rounded-full overflow-hidden">
+                          <motion.div
+                            className={`h-full rounded-full ${
+                              isLimitReached ? 'bg-destructive/60' : 'bg-accent'
+                            }`}
+                            initial={{ width: 0 }}
+                            animate={{ width: `${progress}%` }}
+                            transition={{ delay: index * 0.08 + 0.3, duration: 0.6, ease: "easeOut" }}
+                          />
+                        </div>
+                        <span className="text-[11px] font-medium text-muted-foreground tabular-nums">
+                          {usage}/{DAILY_LIMIT}
+                        </span>
+                      </div>
+                    </button>
+                  )}
 
                   {/* Sheet link */}
                   {mode.sheetUrl && (
