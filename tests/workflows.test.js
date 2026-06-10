@@ -146,7 +146,8 @@ describe("POST /api/workflows", () => {
     const [req2, res2] = makeReqRes("POST", { mode: "stub" });
     await handler(req2, res2);
     expect(res2.statusCode).toBe(200);
-    expect(insertCalls[0].input_url).toBeNull();
+    // input_url is omitted (not null) so pre-migration-016 databases keep working.
+    expect(insertCalls[0]).not.toHaveProperty("input_url");
     expect(JSON.parse(fetchCalls[0].opts.body).inputs.account_url).toBe("");
   });
 });

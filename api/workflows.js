@@ -96,7 +96,15 @@ export default async function handler(req, res) {
 
   const inserted = await supabase
     .from("workflow_runs")
-    .insert({ mode, status: "running", triggered_by: "cloud-ui", counts: {}, input_url: accountUrl })
+    .insert({
+      mode,
+      status: "running",
+      triggered_by: "cloud-ui",
+      counts: {},
+      // Only include input_url when set: keeps the other modes working even if
+      // migration 016 (which adds the column) hasn't been applied yet.
+      ...(accountUrl ? { input_url: accountUrl } : {}),
+    })
     .select("id")
     .single();
   if (!inserted.data) {
