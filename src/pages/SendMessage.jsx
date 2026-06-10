@@ -57,24 +57,24 @@ export default function SendMessage() {
               exit={{ opacity: 0, y: -12 }}
               className="space-y-3"
             >
-              {/* HubSpot link */}
+              {/* View leads sheet — primary, prominent CTA */}
               <motion.a
-                href="https://app.hubspot.com/contacts/7061944/objects/0-1/views/all/list"
+                href="https://docs.google.com/spreadsheets/d/1d5R3qaMzAZO5yee40JKzyNpDRGv0g2BhR9Zlq0k6-9g/edit?gid=0#gid=0"
                 target="_blank"
                 rel="noopener noreferrer"
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.08 }}
-                className="glass-card rounded-2xl p-4 flex items-center gap-4 transition-all duration-300 hover:shadow-lg hover:scale-[1.01] active:scale-[0.99] group cursor-pointer"
+                className="rounded-2xl p-4 flex items-center gap-4 bg-accent accent-glow text-white transition-all duration-300 hover:shadow-lg hover:scale-[1.01] active:scale-[0.99] group cursor-pointer"
               >
-                <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center">
-                  <ExternalLink className="w-4.5 h-4.5 text-accent" />
+                <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center">
+                  <FileSpreadsheet className="w-4.5 h-4.5 text-white" />
                 </div>
                 <div className="flex-1">
-                  <h3 className="text-[15px] font-semibold text-foreground">Bekijk in HubSpot</h3>
-                  <p className="text-[12px] text-muted-foreground">Open de validated leads</p>
+                  <h3 className="text-[15px] font-semibold text-white">View leads</h3>
+                  <p className="text-[12px] text-white/70">Bekijk alle gekwalificeerde leads</p>
                 </div>
-                <ExternalLink className="w-4 h-4 text-muted-foreground/30 group-hover:text-accent transition-colors" />
+                <ExternalLink className="w-4 h-4 text-white/60 group-hover:text-white transition-colors" />
               </motion.a>
 
               {/* Send message button */}
@@ -99,9 +99,9 @@ export default function SendMessage() {
                 </div>
               </motion.button>
 
-              {/* View leads sheet */}
+              {/* HubSpot link */}
               <motion.a
-                href="https://docs.google.com/spreadsheets/d/1d5R3qaMzAZO5yee40JKzyNpDRGv0g2BhR9Zlq0k6-9g/edit?gid=0#gid=0"
+                href="https://app.hubspot.com/contacts/7061944/objects/0-1/views/all/list"
                 target="_blank"
                 rel="noopener noreferrer"
                 initial={{ opacity: 0, y: 16 }}
@@ -109,12 +109,12 @@ export default function SendMessage() {
                 transition={{ delay: 0.24 }}
                 className="glass-card rounded-2xl p-4 flex items-center gap-4 transition-all duration-300 hover:shadow-lg hover:scale-[1.01] active:scale-[0.99] group cursor-pointer"
               >
-                <div className="w-10 h-10 rounded-xl bg-foreground/[0.06] flex items-center justify-center">
-                  <FileSpreadsheet className="w-4.5 h-4.5 text-foreground/60" />
+                <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center">
+                  <ExternalLink className="w-4.5 h-4.5 text-accent" />
                 </div>
                 <div className="flex-1">
-                  <h3 className="text-[15px] font-semibold text-foreground">View leads</h3>
-                  <p className="text-[12px] text-muted-foreground">Bekijk de verzendlijst</p>
+                  <h3 className="text-[15px] font-semibold text-foreground">Bekijk in HubSpot</h3>
+                  <p className="text-[12px] text-muted-foreground">Open de validated leads</p>
                 </div>
                 <ExternalLink className="w-4 h-4 text-muted-foreground/30 group-hover:text-accent transition-colors" />
               </motion.a>
