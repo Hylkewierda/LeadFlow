@@ -118,4 +118,34 @@ describe("POST /api/workflows", () => {
     expect(insertCalls).toHaveLength(0);
     expect(fetchCalls).toHaveLength(0);
   });
+
+  it("400 when accountUrl is not a LinkedIn account URL", async () => {
+    const [req, res] = makeReqRes("POST", { mode: "all-posts", accountUrl: "https://example.com/x" });
+    await handler(req, res);
+    expect(res.statusCode).toBe(400);
+    expect(insertCalls).toHaveLength(0);
+  });
+
+  it("stores input_url and dispatches account_url for a company URL", async () => {
+    const url = "https://www.linkedin.com/company/some-co/";
+    const [req, res] = makeReqRes("POST", { mode: "all-posts", accountUrl: url });
+    await handler(req, res);
+    expect(res.statusCode).toBe(200);
+    expect(insertCalls[0].input_url).toBe(url);
+    const body = JSON.parse(fetchCalls[0].opts.body);
+    expect(body.inputs.account_url).toBe(url);
+  });
+
+  it("accepts a personal profile URL and defaults account_url to empty when absent", async () => {
+    const [req1, res1] = makeReqRes("POST", { mode: "all-posts", accountUrl: "https://www.linkedin.com/in/janedoe" });
+    await handler(req1, res1);
+    expect(res1.statusCode).toBe(200);
+
+    fetchCalls.length = 0; insertCalls.length = 0;
+    const [req2, res2] = makeReqRes("POST", { mode: "stub" });
+    await handler(req2, res2);
+    expect(res2.statusCode).toBe(200);
+    expect(insertCalls[0].input_url).toBeNull();
+    expect(JSON.parse(fetchCalls[0].opts.body).inputs.account_url).toBe("");
+  });
 });
