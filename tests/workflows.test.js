@@ -124,6 +124,7 @@ describe("POST /api/workflows", () => {
     await handler(req, res);
     expect(res.statusCode).toBe(400);
     expect(insertCalls).toHaveLength(0);
+    expect(fetchCalls).toHaveLength(0);
   });
 
   it("stores input_url and dispatches account_url for a company URL", async () => {
