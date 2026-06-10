@@ -53,6 +53,7 @@ describe("GET /api/kb", () => {
     const [req, res] = makeReqRes("GET", null, { op: "file", path: "kb/actuals/icp.md" });
     await handler(req, res);
     expect(res.body).toEqual({ path: "kb/actuals/icp.md", sha: "abc", content: "# ICP" });
+    expect(fetchCalls[0].url).toBe("https://api.github.com/repos/Hylkewierda/lead-discovery-service/contents/kb/actuals/icp.md?ref=main");
 
     const [req2, res2] = makeReqRes("GET", null, { op: "file", path: "kb/actuals/../../secrets.md" });
     await handler(req2, res2);
@@ -60,6 +61,14 @@ describe("GET /api/kb", () => {
     const [req3, res3] = makeReqRes("GET", null, { op: "file", path: "src/index.ts" });
     await handler(req3, res3);
     expect(res3.statusCode).toBe(400);
+  });
+
+  it("op=file percent-encodes segments but keeps slashes", async () => {
+    fetchResponses = [{ status: 200, body: { sha: "m1", content: b64("# MOC") } }];
+    const [req, res] = makeReqRes("GET", null, { op: "file", path: "kb/actuals/MOCs/MOC - Product.md" });
+    await handler(req, res);
+    expect(res.statusCode).toBe(200);
+    expect(fetchCalls[0].url).toBe("https://api.github.com/repos/Hylkewierda/lead-discovery-service/contents/kb/actuals/MOCs/MOC%20-%20Product.md?ref=main");
   });
 });
 

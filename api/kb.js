@@ -44,6 +44,15 @@ async function commitFile({ pat, path, content, sha, message }) {
 }
 
 export default async function handler(req, res) {
+  try {
+    return await handle(req, res);
+  } catch {
+    // Network-level fetch failures land here; everything else returns explicitly.
+    return res.status(502).json({ error: "GitHub onbereikbaar — probeer opnieuw" });
+  }
+}
+
+async function handle(req, res) {
   const pat = process.env.GITHUB_PAT;
   if (!pat) return res.status(500).json({ error: "Missing GITHUB_PAT env var" });
 
@@ -107,7 +116,8 @@ export default async function handler(req, res) {
       const note = typeof req.body?.note === "string" ? req.body.note.trim() : "";
       if (!note) return res.status(400).json({ error: "Notitie is leeg" });
       if (note.length > MAX_NOTE) return res.status(400).json({ error: `Notitie is te lang (max ${MAX_NOTE} tekens)` });
-      const category = typeof req.body?.category === "string" && req.body.category.trim() ? ` — ${req.body.category.trim()}` : "";
+      const rawCategory = typeof req.body?.category === "string" ? req.body.category.replace(/\s+/g, " ").trim() : "";
+      const category = rawCategory ? ` — ${rawCategory}` : "";
       const path = `${KB_PREFIX}updates.md`;
 
       const cur = await fetch(`${contentsUrl(path)}?ref=${BRANCH}`, { headers: ghHeaders(pat) });
