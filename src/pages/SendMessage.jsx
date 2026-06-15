@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ExternalLink, Loader2, CheckCircle2, Send, FileSpreadsheet } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import MoreInfo from "../components/MoreInfo";
 
 const WEBHOOK_URL = "https://hylkewnl.app.n8n.cloud/webhook/d95c131d-80dd-4b96-9d1b-916bb82e7390";
 
@@ -76,6 +77,10 @@ export default function SendMessage() {
                 </div>
                 <ExternalLink className="w-4 h-4 text-white/60 group-hover:text-white transition-colors" />
               </motion.a>
+              <MoreInfo>
+                Overzicht van alle gevalideerde leads (score &ge; 50) met hun
+                scores en data — klaar voor opvolging.
+              </MoreInfo>
 
               {/* Send message button */}
               <motion.button
@@ -98,6 +103,10 @@ export default function SendMessage() {
                   <p className="text-[12px] text-muted-foreground">Verstuur gepersonaliseerde berichten</p>
                 </div>
               </motion.button>
+              <MoreInfo>
+                Start een workflow die gepersonaliseerde berichten aanmaakt voor je
+                gekwalificeerde leads, klaar om te versturen.
+              </MoreInfo>
 
               {/* HubSpot link */}
               <motion.a
@@ -118,6 +127,10 @@ export default function SendMessage() {
                 </div>
                 <ExternalLink className="w-4 h-4 text-muted-foreground/30 group-hover:text-accent transition-colors" />
               </motion.a>
+              <MoreInfo>
+                Bekijk en beheer de gekwalificeerde leads rechtstreeks in HubSpot,
+                waar je opvolging en deals bijhoudt.
+              </MoreInfo>
 
               {/* Error */}
               {error && (

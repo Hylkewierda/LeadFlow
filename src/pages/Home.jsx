@@ -4,14 +4,15 @@ import { createPageUrl } from "../utils";
 import { ExternalLink, Loader2, Zap, Lock, Activity, Radar, ChevronRight, Sparkles } from "lucide-react";
 import { motion } from "framer-motion";
 import { useWorkflow } from "../components/WorkflowContext";
+import MoreInfo from "../components/MoreInfo";
 
 const DAILY_LIMIT = 5;
 
 const WORKFLOW_MODES = [
-  { id: "AllPosts", storageId: "all_posts", label: "Account posts", description: "Scrape de posts van een LinkedIn-account", sheetUrl: null, apiMode: "all-posts", requiresUrl: true },
-  { id: "SpecificPosts", storageId: "specific_posts_v2", label: "Coming from other profiles", description: "Posts van andere profielen analyseren", sheetUrl: "https://docs.google.com/spreadsheets/d/1VUHdVrfQbsL8nYMoD1nhAq1ayFFpy77W3Eu7je1CdAc", apiMode: "specific-posts" },
-  { id: "Campaigns", storageId: "campaigns", label: "Campaigns", description: "Campaign leads", sheetUrl: "https://docs.google.com/spreadsheets/d/1UJvwFAZQJ6q_VRp3_MjphJ3bbdAp-JNhe1I08iKlxxU", apiMode: "campaigns" },
-  { id: "CommentPosts", storageId: "comment_posts", label: "Comment Posts", description: "Comment engagement", sheetUrl: "https://docs.google.com/spreadsheets/d/1y4gPlMXPCSn54FyRc3vpMSDfI-L46LqlHaxmOZacJZo", apiMode: "comment-posts" },
+  { id: "AllPosts", storageId: "all_posts", label: "Account posts", description: "Scrape de posts van een LinkedIn-account", sheetUrl: null, apiMode: "all-posts", requiresUrl: true, info: "Vul de URL in van een LinkedIn-account (bedrijfspagina of persoonlijk profiel) en analyseer wie er op de posts van dat account reageert. Iedereen die interacteert wordt als profiel verzameld en automatisch gekwalificeerd." },
+  { id: "SpecificPosts", storageId: "specific_posts_v2", label: "Coming from other profiles", description: "Posts van andere profielen analyseren", sheetUrl: "https://docs.google.com/spreadsheets/d/1VUHdVrfQbsL8nYMoD1nhAq1ayFFpy77W3Eu7je1CdAc", apiMode: "specific-posts", info: "Analyseert alleen de specifieke posts van andere profielen die je hebt toegevoegd aan de gekoppelde Google Sheet. Open de sheet via het icoon rechts om posts toe te voegen voordat je start." },
+  { id: "Campaigns", storageId: "campaigns", label: "Campaigns", description: "Campaign leads", sheetUrl: "https://docs.google.com/spreadsheets/d/1UJvwFAZQJ6q_VRp3_MjphJ3bbdAp-JNhe1I08iKlxxU", apiMode: "campaigns", info: "Verwerkt de leads uit je actieve LinkedIn-campagnes. De campagnedata komt uit de gekoppelde Google Sheet (open via het icoon rechts)." },
+  { id: "CommentPosts", storageId: "comment_posts", label: "Comment Posts", description: "Comment engagement", sheetUrl: "https://docs.google.com/spreadsheets/d/1y4gPlMXPCSn54FyRc3vpMSDfI-L46LqlHaxmOZacJZo", apiMode: "comment-posts", info: "Focust op profielen die een comment hebben geplaatst op je posts — vaak de warmste interacties. De betrokken posts beheer je in de gekoppelde Google Sheet (open via het icoon rechts)." },
 ];
 
 const ACCOUNT_URL_RE = /^https:\/\/(www\.)?linkedin\.com\/(company|in)\/[^/?#]+/i;
@@ -134,6 +135,43 @@ export default function Home() {
           <p className="text-muted-foreground text-[13px] mt-2">
             Selecteer een workflow om te starten
           </p>
+
+          <MoreInfo label="Hoe werkt LeadFlow?">
+            <p>
+              LeadFlow is een geautomatiseerd lead-kwalificatiesysteem voor B2B
+              sales. Het verzamelt LinkedIn-profielen, laat AI elk profiel
+              scoren op functietitel, branche, bedrijfsgrootte en geografie, en
+              sorteert ze automatisch als <strong>GO</strong>,{" "}
+              <strong>MAYBE</strong> of <strong>NO-GO</strong>. Gekwalificeerde
+              leads gaan door naar HubSpot voor opvolging.
+            </p>
+
+            <p className="mt-3 font-semibold text-foreground">De volledige flow</p>
+            <ol className="mt-1 list-decimal pl-4 space-y-1">
+              <li>Profielen worden verzameld via posts, campagnes of comments.</li>
+              <li>Een geautomatiseerde workflow kwalificeert elk profiel met AI.</li>
+              <li>Alle contacten worden met hun score opgeslagen in HubSpot.</li>
+              <li>In LeadFlow beheer je workflows, bekijk je data en beoordeel je Maybe-leads.</li>
+              <li>Gekwalificeerde leads worden benaderd met gepersonaliseerde berichten.</li>
+            </ol>
+
+            <p className="mt-3 font-semibold text-foreground">Daglimiet</p>
+            <p className="mt-1">
+              Elke workflow kan maximaal {DAILY_LIMIT} keer per dag worden
+              gestart. De voortgangsbalk onder elke knop toont hoeveel runs je
+              nog over hebt; het limiet reset automatisch om middernacht.
+            </p>
+
+            <p className="mt-3 font-semibold text-foreground">AutoResearch</p>
+            <p className="mt-1">
+              Achter de schermen draait een optimalisatieloop die de
+              kwalificatieprompt continu verbetert: classificeren met de huidige
+              prompt, F1-score meten tegen ground truth (HubSpot-deals + jouw
+              Maybe-beoordelingen), fouten analyseren, prompt bijstellen en
+              alleen behouden wat de score verbetert. Jouw Maybe-oordelen vloeien
+              terug als ground truth en maken het model scherper.
+            </p>
+          </MoreInfo>
         </motion.div>
 
         {/* Warning */}
@@ -273,6 +311,7 @@ export default function Home() {
                     </a>
                   )}
                 </div>
+                {mode.info && <MoreInfo>{mode.info}</MoreInfo>}
               </motion.div>
             );
           })}
@@ -316,6 +355,12 @@ export default function Home() {
             <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground/40 transition-all duration-300 group-hover:translate-x-0.5 group-hover:text-emerald-600" />
           </div>
         </motion.div>
+        <MoreInfo label="Meer over Leadfinder">
+          KB-gestuurde lead-discovery: op basis van je kennisbank stelt Claude een
+          playbook op, zoekt het passende LinkedIn-profielen en scoort die direct.
+          In de triage-weergave beoordeel je de gevonden kandidaten één voor één en
+          kwalificeer je ze rechtstreeks naar je Google Sheet.
+        </MoreInfo>
 
         {/* Lookalike search card */}
         <motion.div
@@ -355,6 +400,12 @@ export default function Home() {
             <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground/40 transition-all duration-300 group-hover:translate-x-0.5 group-hover:text-emerald-600" />
           </div>
         </motion.div>
+        <MoreInfo label="Meer over Lookalike search">
+          Plak één of meer LinkedIn-profiel-URL&apos;s als ICP-anker. Wij
+          distilleren daaruit het archetype (functie, branche, schaal, regio) en
+          zoeken soortgelijke profielen. De resultaten worden gescoord en kun je
+          exporteren naar een Google Sheet.
+        </MoreInfo>
 
         {/* Active workflow banner */}
         {workflowRunning && (

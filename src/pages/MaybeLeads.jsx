@@ -1,5 +1,6 @@
 import { ExternalLink, HelpCircle } from "lucide-react";
 import { motion } from "framer-motion";
+import MoreInfo from "../components/MoreInfo";
 
 const MAYBE_LEADS_SHEET_URL =
   "https://docs.google.com/spreadsheets/d/1l3Ceas2AVQV-P3Cy6-j44WW3J84SvnbcVNhnsPgPsKU/edit?gid=0#gid=0";
@@ -73,6 +74,32 @@ export default function MaybeLeads() {
           </div>
           <ExternalLink className="w-4 h-4 text-muted-foreground/30 group-hover:text-accent transition-colors" />
         </motion.a>
+
+        <MoreInfo label="Hoe werkt de score & beoordeling?">
+          <p className="font-semibold text-foreground">Het scoringsysteem</p>
+          <p className="mt-1">
+            Elke lead krijgt een gewogen totaalscore over vier dimensies:
+          </p>
+          <ul className="mt-1 list-disc pl-4 space-y-1">
+            <li><strong>Functietitel (40%)</strong> — bv. Controller, CFO, Finance Manager</li>
+            <li><strong>Branche-fit (25%)</strong> — bv. E-commerce, SaaS, FinTech</li>
+            <li><strong>Bedrijf &amp; schaal (20%)</strong> — bekend bedrijf, past bij ICP</li>
+            <li><strong>Geografie (15%)</strong> — bv. DACH, Nederland, Nordics</li>
+          </ul>
+          <p className="mt-2">
+            Drempels: <strong>GO</strong> bij score &ge; 50 (automatisch
+            gekwalificeerd), <strong>MAYBE</strong> bij 35–49 (handmatige review),{" "}
+            <strong>NO-GO</strong> bij &lt; 35 (niet gekwalificeerd).
+          </p>
+
+          <p className="mt-3 font-semibold text-foreground">Een Maybe-lead beoordelen</p>
+          <ol className="mt-1 list-decimal pl-4 space-y-1">
+            <li>Open de Maybe Leads Google Sheet via de knop hierboven.</li>
+            <li>Bekijk de profieldata en de AI-reasoning per lead.</li>
+            <li>Vul je oordeel in: YES (alsnog GO) of NO (definitief NO-GO).</li>
+            <li>Je beoordeling vloeit terug als ground truth en verbetert het AI-model.</li>
+          </ol>
+        </MoreInfo>
       </div>
     </div>
   );

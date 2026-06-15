@@ -1,5 +1,6 @@
 import { ExternalLink, Users } from "lucide-react";
 import { motion } from "framer-motion";
+import MoreInfo from "../components/MoreInfo";
 
 export default function ClientDatabase() {
   return (
@@ -39,6 +40,13 @@ export default function ClientDatabase() {
           </div>
           <ExternalLink className="w-4 h-4 text-muted-foreground/30 group-hover:text-accent transition-colors" />
         </motion.a>
+
+        <MoreInfo>
+          Deze pagina linkt direct naar je HubSpot-contacten. Alle leads die
+          LeadFlow verwerkt — ongeacht hun kwalificatie — worden als contact in
+          HubSpot opgeslagen, zodat je een compleet overzicht opbouwt van alle
+          geanalyseerde profielen.
+        </MoreInfo>
       </div>
     </div>
   );
