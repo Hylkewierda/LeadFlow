@@ -55,6 +55,7 @@ import Leadfinder from './pages/Leadfinder';
 import LookalikeSearch from './pages/LookalikeSearch';
 import MaybeLeads from './pages/MaybeLeads';
 import SendMessage from './pages/SendMessage';
+import TopLeads from './pages/TopLeads';
 import WorkflowActivated from './pages/WorkflowActivated';
 import __Layout from './Layout.jsx';
 
@@ -68,6 +69,7 @@ export const PAGES = {
     "LookalikeSearch": LookalikeSearch,
     "MaybeLeads": MaybeLeads,
     "SendMessage": SendMessage,
+    "TopLeads": TopLeads,
     "WorkflowActivated": WorkflowActivated,
 }
 
