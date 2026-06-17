@@ -51,7 +51,7 @@ export async function saveQualifierFeedback(text) {
   const res = await fetch("/api/qualifier-feedback", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ feedback: text }),
+    body: JSON.stringify({ feedback: text, workspaceSlug: WORKSPACE_SLUG }),
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));

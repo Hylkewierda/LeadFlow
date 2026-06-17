@@ -109,7 +109,7 @@ function QualifierFeedbackCard() {
       />
       <div className="mt-1 flex items-center justify-between">
         <span className={`text-[11px] ${over ? "text-destructive font-semibold" : "text-muted-foreground"}`}>{text.length} / {MAX_FEEDBACK}{over ? " — wordt afgekapt" : ""}</span>
-        <button onClick={save} disabled={!loaded || status === "saving"} className="rounded-lg bg-emerald-600 text-white text-[12px] font-semibold px-3 py-1.5 disabled:opacity-50">
+        <button onClick={save} disabled={!loaded || status === "saving" || over} className="rounded-lg bg-emerald-600 text-white text-[12px] font-semibold px-3 py-1.5 disabled:opacity-50">
           {status === "saving" ? "Bewaren…" : "Bewaar"}
         </button>
       </div>
