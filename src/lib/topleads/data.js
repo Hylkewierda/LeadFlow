@@ -35,3 +35,26 @@ export async function getLatestAudienceInsight() {
   if (error) throw new Error(error.message);
   return data?.[0] ?? null;
 }
+
+export async function getQualifierFeedback() {
+  const supabase = browserSupabase();
+  const { data, error } = await supabase
+    .from("workspaces")
+    .select("qualifier_feedback")
+    .eq("slug", WORKSPACE_SLUG)
+    .single();
+  if (error) throw new Error(error.message);
+  return data?.qualifier_feedback ?? "";
+}
+
+export async function saveQualifierFeedback(text) {
+  const res = await fetch("/api/qualifier-feedback", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ feedback: text }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || `Save failed (${res.status})`);
+  }
+}

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Trophy, Loader2, MessageSquare, ThumbsUp, FileText, Activity, Users } from "lucide-react";
-import { listHomeTopLeads, getLatestAudienceInsight } from "../lib/topleads/data";
+import { Trophy, Loader2, MessageSquare, ThumbsUp, FileText, Activity, Users, MessageSquarePlus } from "lucide-react";
+import { listHomeTopLeads, getLatestAudienceInsight, getQualifierFeedback, saveQualifierFeedback } from "../lib/topleads/data";
 import { rankTopLeads, combinedScore } from "../lib/topleads/scoring";
 
 const ease = [0.22, 1, 0.36, 1];
@@ -67,6 +67,68 @@ function AudienceInsightCard({ insight }) {
   );
 }
 
+const MAX_FEEDBACK = 3000;
+
+function QualifierFeedbackCard() {
+  const [text, setText] = useState("");
+  const [loaded, setLoaded] = useState(false);
+  const [status, setStatus] = useState(null); // "saving" | "saved" | error string
+  const [entry, setEntry] = useState("");
+
+  useEffect(() => {
+    getQualifierFeedback().then((t) => { setText(t); setLoaded(true); }).catch(() => setLoaded(true));
+  }, []);
+
+  function addEntry() {
+    const e = entry.trim();
+    if (!e) return;
+    const date = new Date().toISOString().slice(0, 10);
+    setText((prev) => (prev ? `${prev}\n` : "") + `- ${date}: ${e}`);
+    setEntry("");
+  }
+
+  async function save() {
+    setStatus("saving");
+    try { await saveQualifierFeedback(text); setStatus("saved"); }
+    catch (err) { setStatus(err.message); }
+  }
+
+  const over = text.length > MAX_FEEDBACK;
+  return (
+    <div className="glass-card rounded-2xl p-4 mb-6">
+      <div className="flex items-center gap-2 mb-2">
+        <MessageSquarePlus className="w-4 h-4 text-emerald-700" />
+        <h2 className="text-[13px] font-semibold text-foreground">Qualifier-feedback (stuurt de volgende runs)</h2>
+      </div>
+      <textarea
+        value={text}
+        onChange={(e) => { setText(e.target.value); setStatus(null); }}
+        rows={6}
+        placeholder="Bv. — 2026-06-17: scoor junior accountants niet als GO; weeg e-commerce/marketplaces zwaarder."
+        className="w-full text-[13px] rounded-xl border border-foreground/10 bg-background/50 p-3 font-mono"
+      />
+      <div className="mt-1 flex items-center justify-between">
+        <span className={`text-[11px] ${over ? "text-destructive font-semibold" : "text-muted-foreground"}`}>{text.length} / {MAX_FEEDBACK}{over ? " — wordt afgekapt" : ""}</span>
+        <button onClick={save} disabled={!loaded || status === "saving"} className="rounded-lg bg-emerald-600 text-white text-[12px] font-semibold px-3 py-1.5 disabled:opacity-50">
+          {status === "saving" ? "Bewaren…" : "Bewaar"}
+        </button>
+      </div>
+      <div className="mt-2 flex items-center gap-2">
+        <input
+          value={entry}
+          onChange={(e) => setEntry(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") addEntry(); }}
+          placeholder="Snel een regel toevoegen…"
+          className="flex-1 text-[12px] rounded-lg border border-foreground/10 bg-background/50 px-2 py-1.5"
+        />
+        <button onClick={addEntry} className="text-[12px] text-emerald-700 font-semibold px-2 py-1.5">+ toevoegen</button>
+      </div>
+      {status === "saved" && <p className="mt-2 text-[11px] text-emerald-700">Opgeslagen — geldt vanaf je volgende run.</p>}
+      {status && status !== "saving" && status !== "saved" && <p className="mt-2 text-[11px] text-destructive">{status}</p>}
+    </div>
+  );
+}
+
 export default function TopLeads() {
   const [leads, setLeads] = useState(null);
   const [error, setError] = useState(null);
@@ -97,6 +159,7 @@ export default function TopLeads() {
         </motion.div>
 
         {insight && <AudienceInsightCard insight={insight} />}
+        <QualifierFeedbackCard />
 
         {error && <div className="px-4 py-3 bg-destructive/8 border border-destructive/15 rounded-2xl"><p className="text-destructive text-[13px] font-medium">{error}</p></div>}
         {!leads && !error && <div className="flex justify-center py-12"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>}
