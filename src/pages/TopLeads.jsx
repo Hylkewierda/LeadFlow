@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Trophy, Loader2, MessageSquare, ThumbsUp, FileText, Activity } from "lucide-react";
-import { listHomeTopLeads } from "../lib/topleads/data";
+import { Trophy, Loader2, MessageSquare, ThumbsUp, FileText, Activity, Users } from "lucide-react";
+import { listHomeTopLeads, getLatestAudienceInsight } from "../lib/topleads/data";
 import { rankTopLeads, combinedScore } from "../lib/topleads/scoring";
 
 const ease = [0.22, 1, 0.36, 1];
@@ -38,12 +38,46 @@ function LeadCard({ lead, rank = null }) {
   );
 }
 
+function AudienceInsightCard({ insight }) {
+  const a = insight.audience_insight || {};
+  const d = a.distribution || {};
+  const companies = (a.top_companies || []).slice(0, 3);
+  return (
+    <div className="glass-card rounded-2xl p-4 mb-6">
+      <div className="flex items-center gap-2 mb-2">
+        <Users className="w-4 h-4 text-emerald-700" />
+        <h2 className="text-[13px] font-semibold text-foreground">
+          Publiek laatste run · {insight.mode}
+        </h2>
+      </div>
+      <div className="flex flex-wrap items-center gap-2 mb-2">
+        <span className="text-[11px] text-muted-foreground">{a.analyzed ?? 0} van {a.total_interactions ?? 0} beoordeeld</span>
+        <span className="rounded-full bg-emerald-600/10 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">GO {d.go ?? 0}</span>
+        <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] font-semibold text-amber-700">MAYBE {d.maybe ?? 0}</span>
+        <span className="rounded-full bg-foreground/[0.06] px-2 py-0.5 text-[11px] font-semibold text-foreground">NO-GO {d.nogo ?? 0}</span>
+        <span className="rounded-full bg-foreground/[0.06] px-2 py-0.5 text-[11px] font-semibold text-foreground">ICP-fit {a.icp_fit_pct ?? 0}%</span>
+      </div>
+      {companies.length > 0 && (
+        <p className="text-[11px] text-muted-foreground mb-2">
+          Top bedrijven: {companies.map((c) => `${c.name} (${c.count})`).join(" · ")}
+        </p>
+      )}
+      {a.conclusion && <p className="text-[13px] text-foreground/90">{a.conclusion}</p>}
+    </div>
+  );
+}
+
 export default function TopLeads() {
   const [leads, setLeads] = useState(null);
   const [error, setError] = useState(null);
+  const [insight, setInsight] = useState(null);
 
   useEffect(() => {
     listHomeTopLeads().then(setLeads).catch((e) => setError(e.message));
+  }, []);
+
+  useEffect(() => {
+    getLatestAudienceInsight().then(setInsight).catch(() => setInsight(null));
   }, []);
 
   const top10 = leads ? rankTopLeads(leads, 10) : [];
@@ -61,6 +95,8 @@ export default function TopLeads() {
           </div>
           <p className="text-muted-foreground text-[13px] mt-2">De beste GO-leads, gewogen op profiel-fit én engagement.</p>
         </motion.div>
+
+        {insight && <AudienceInsightCard insight={insight} />}
 
         {error && <div className="px-4 py-3 bg-destructive/8 border border-destructive/15 rounded-2xl"><p className="text-destructive text-[13px] font-medium">{error}</p></div>}
         {!leads && !error && <div className="flex justify-center py-12"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>}

@@ -23,3 +23,15 @@ export async function listHomeTopLeads() {
   if (error) throw new Error(error.message);
   return data ?? [];
 }
+
+export async function getLatestAudienceInsight() {
+  const supabase = browserSupabase();
+  const { data, error } = await supabase
+    .from("workflow_runs")
+    .select("mode,started_at,audience_insight")
+    .not("audience_insight", "is", null)
+    .order("started_at", { ascending: false })
+    .limit(1);
+  if (error) throw new Error(error.message);
+  return data?.[0] ?? null;
+}
