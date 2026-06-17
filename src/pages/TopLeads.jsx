@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Trophy, Loader2, MessageSquare, ThumbsUp, FileText } from "lucide-react";
+import { Trophy, Loader2, MessageSquare, ThumbsUp, FileText, Activity } from "lucide-react";
 import { listHomeTopLeads } from "../lib/topleads/data";
 import { rankTopLeads, combinedScore } from "../lib/topleads/scoring";
 
 const ease = [0.22, 1, 0.36, 1];
 
-function LeadCard({ lead, rank }) {
+function LeadCard({ lead, rank = null }) {
   const p = lead.profile || {};
   const ctx = lead.signal_context || {};
   return (
@@ -27,6 +27,7 @@ function LeadCard({ lead, rank }) {
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <span className="rounded-full bg-foreground/[0.06] px-2 py-0.5 text-[11px] font-semibold text-foreground">ICP {Math.round(lead.icp_score)}</span>
             <span className="rounded-full bg-emerald-600/10 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">Engagement {Math.round(lead.engagement_score)}</span>
+            <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground"><Activity className="w-3 h-3" />{ctx.interactionCount ?? 0} interacties</span>
             <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground"><FileText className="w-3 h-3" />{ctx.distinctPosts ?? 0} posts</span>
             <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground"><MessageSquare className="w-3 h-3" />{ctx.commentCount ?? 0}</span>
             <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground"><ThumbsUp className="w-3 h-3" />{ctx.reactionCount ?? 0}</span>
