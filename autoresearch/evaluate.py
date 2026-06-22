@@ -11,7 +11,6 @@ import json
 import os
 import sys
 import urllib.request
-import requests
 from hubspot_client import get_contacts_with_deals
 
 PROMPT_PATH = os.path.join(os.path.dirname(__file__), "qualify_prompt.md")
@@ -20,8 +19,10 @@ LEADS_PATH = os.path.join(os.path.dirname(__file__), "results", "leads_to_classi
 CLASSIFICATIONS_PATH = os.path.join(os.path.dirname(__file__), "results", "classifications.json")
 MAYBE_VERDICTS_PATH = os.path.join(os.path.dirname(__file__), "results", "maybe_verdicts.json")
 
-MAYBE_SHEET_ID = "1l3Ceas2AVQV-P3Cy6-j44WW3J84SvnbcVNhnsPgPsKU"
-MAYBE_SHEET_CSV_URL = f"https://docs.google.com/spreadsheets/d/{MAYBE_SHEET_ID}/export?format=csv"
+
+def _norm_url(u):
+    """Normalize a LinkedIn profile URL for cross-source dedup (trailing slash + case)."""
+    return (u or "").strip().rstrip("/").lower()
 
 
 def load_prompt() -> str:
@@ -85,7 +86,7 @@ def build_ground_truth(force_refresh=False) -> list[dict]:
     """Fetch contacts from HubSpot and build labeled dataset.
 
     Uses a local JSON cache to avoid repeated HubSpot API calls.
-    Merges in human verdicts from the Maybe Leads Google Sheet.
+    Merges in human verdicts from Supabase (qualifier_exemplars).
     Pass force_refresh=True to re-fetch from HubSpot.
     """
     if not force_refresh and os.path.exists(CACHE_PATH):
@@ -110,13 +111,13 @@ def build_ground_truth(force_refresh=False) -> list[dict]:
             json.dump(hubspot_labeled, f, indent=2)
         print(f"  Cached {len(hubspot_labeled)} HubSpot labeled leads")
 
-    # Merge in Maybe Leads human verdicts
-    print("Fetching human verdicts from Maybe Leads sheet...")
+    # Merge in human verdicts from Supabase
+    print("Fetching human verdicts from Supabase...")
     maybe_verdicts = fetch_maybe_verdicts()
 
     # Deduplicate: if a profileUrl exists in both, human verdict wins
-    hubspot_urls = {l.get("profileUrl") for l in hubspot_labeled if l.get("profileUrl")}
-    new_verdicts = [v for v in maybe_verdicts if v["profileUrl"] not in hubspot_urls]
+    hubspot_urls = {_norm_url(l.get("profileUrl")) for l in hubspot_labeled if l.get("profileUrl")}
+    new_verdicts = [v for v in maybe_verdicts if _norm_url(v["profileUrl"]) not in hubspot_urls]
 
     labeled = hubspot_labeled + new_verdicts
     print(f"  Total ground truth: {len(labeled)} ({len(hubspot_labeled)} HubSpot + {len(new_verdicts)} new from sheet)")
