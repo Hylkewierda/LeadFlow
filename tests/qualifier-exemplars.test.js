@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { extractJsonObject } from "../api/qualifier-exemplars.js";
 
 const state = {
   workspaces: [{ id: "ws-1", slug: "actuals" }],
@@ -43,9 +44,12 @@ vi.mock("@supabase/supabase-js", () => ({
   }),
 }));
 
+// Realistic: models often wrap JSON in markdown fences despite instructions.
 const fetchMock = vi.fn(async () => ({
   ok: state.fetchOk,
-  json: async () => ({ content: [{ type: "text", text: JSON.stringify({ patterns: state.fetchPatterns }) }] }),
+  json: async () => ({
+    content: [{ type: "text", text: "```json\n" + JSON.stringify({ patterns: state.fetchPatterns }) + "\n```" }],
+  }),
   text: async () => "anthropic error body",
 }));
 vi.stubGlobal("fetch", fetchMock);
@@ -71,6 +75,20 @@ beforeEach(async () => {
   process.env.SUPABASE_SERVICE_ROLE_KEY = "service-key";
   process.env.ANTHROPIC_API_KEY = "sk-test";
   handler = (await import("../api/qualifier-exemplars.js")).default;
+});
+
+describe("extractJsonObject", () => {
+  it("parses bare JSON", () => {
+    expect(extractJsonObject('{"patterns":[]}')).toEqual({ patterns: [] });
+  });
+  it("parses ```json fenced JSON", () => {
+    expect(extractJsonObject('```json\n{"patterns":[{"verdict":"GO","pattern":"x"}]}\n```')).toEqual({
+      patterns: [{ verdict: "GO", pattern: "x" }],
+    });
+  });
+  it("parses JSON with prose preamble", () => {
+    expect(extractJsonObject('Hier zijn de patronen:\n{"patterns":[]}')).toEqual({ patterns: [] });
+  });
 });
 
 describe("api/qualifier-exemplars", () => {

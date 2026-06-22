@@ -11,6 +11,23 @@ const COMPRESS_MODEL = process.env.ANTHROPIC_COMPRESS_MODEL || "claude-sonnet-4-
 const MIN_TO_COMPRESS = 4; // not worth an LLM call below this
 
 /**
+ * Parse a JSON object out of an LLM text response. Models often wrap JSON in
+ * markdown fences or add a sentence of preamble despite instructions, so we
+ * strip ```json fences and fall back to the first {...last } slice.
+ */
+export function extractJsonObject(raw) {
+  let t = (raw || "").trim();
+  const fence = t.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fence) t = fence[1].trim();
+  if (!t.startsWith("{")) {
+    const s = t.indexOf("{");
+    const e = t.lastIndexOf("}");
+    if (s !== -1 && e > s) t = t.slice(s, e + 1);
+  }
+  return JSON.parse(t);
+}
+
+/**
  * Distil raw human verdicts into compact GO/NO-GO patterns via one Anthropic
  * call. Returns an array of { verdict, pattern } (throws on missing key or
  * unparseable output — the caller maps that to a 500).
@@ -59,7 +76,7 @@ async function distilPatterns(rows) {
   const text = (json?.content ?? []).map((b) => (b?.type === "text" ? b.text : "")).join("").trim();
   let parsed;
   try {
-    parsed = JSON.parse(text);
+    parsed = extractJsonObject(text);
   } catch {
     throw new Error("compress: could not parse model output as JSON");
   }
