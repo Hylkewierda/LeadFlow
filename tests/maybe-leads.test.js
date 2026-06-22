@@ -41,8 +41,16 @@ vi.mock("@supabase/supabase-js", () => ({
         };
       }
       if (table === "qualifier_exemplars") {
+        // Supports the new dedup chain: select().eq(workspace_id).eq(field).limit(1)
+        // Both byUrl and byKey queries use the same shape; return existingExemplars for both.
         return {
-          select: () => ({ eq: () => ({ or: () => Promise.resolve({ data: state.existingExemplars, error: null }) }) }),
+          select: () => ({
+            eq: () => ({
+              eq: () => ({
+                limit: () => Promise.resolve({ data: state.existingExemplars, error: null }),
+              }),
+            }),
+          }),
           insert: (row) => { inserted.exemplars.push(row); return Promise.resolve({ error: null }); },
         };
       }
@@ -110,5 +118,25 @@ describe("POST /api/maybe-leads", () => {
     expect(res.body.deduped).toBe(true);
     expect(inserted.exemplars).toHaveLength(0);
     expect(inserted.candidateUpdates[0].patch.status).toBe("qualified");
+  });
+
+  it("regression: inserts exactly one exemplar when company contains a comma", async () => {
+    // This is the bug scenario: company "Smith, Jones & Partners" previously caused the
+    // PostgREST .or() filter to split at the comma → malformed query → silent dedup miss.
+    // With two separate .eq() queries the comma is a bound value, not filter grammar.
+    state.candidateById = {
+      id: "c2", workspace_id: "ws-1", linkedin_url: "u2",
+      linkedin_profile: { name: "Bob", headline: "VP Engineering", role: "VP, Engineering", company: "Smith, Jones & Partners", location: "UK" },
+      llm_reasoning: "strong fit",
+    };
+    state.existingExemplars = []; // no pre-existing exemplar
+    const [req, res] = makeReqRes("POST", { body: { candidateId: "c2", verdict: "GO" } });
+    await handler(req, res);
+    expect(res.statusCode).toBe(200);
+    expect(res.body.deduped).toBe(false);
+    expect(inserted.exemplars).toHaveLength(1);
+    // The dedup_key must contain the comma — proving it was stored as data, not truncated.
+    expect(inserted.exemplars[0].dedup_key).toContain(",");
+    expect(inserted.exemplars[0].company).toBe("Smith, Jones & Partners");
   });
 });

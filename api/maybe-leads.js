@@ -72,12 +72,22 @@ export default async function handler(req, res) {
       .eq("id", candidateId);
 
     // 2) Dedup-guarded insert into the learning store.
-    const dup = await supabase
+    // Use two separate equality queries (not .or() with string interpolation) so that
+    // commas/quotes in role/company values are passed as bound parameters and never
+    // parsed as PostgREST filter grammar.
+    const byUrl = await supabase
       .from("qualifier_exemplars")
       .select("id")
       .eq("workspace_id", cand.data.workspace_id)
-      .or(`linkedin_url.eq.${cand.data.linkedin_url},dedup_key.eq.${dedupKey}`);
-    const isDup = (dup.data ?? []).length > 0;
+      .eq("linkedin_url", cand.data.linkedin_url)
+      .limit(1);
+    const byKey = await supabase
+      .from("qualifier_exemplars")
+      .select("id")
+      .eq("workspace_id", cand.data.workspace_id)
+      .eq("dedup_key", dedupKey)
+      .limit(1);
+    const isDup = (byUrl.data ?? []).length > 0 || (byKey.data ?? []).length > 0;
 
     if (!isDup) {
       await supabase.from("qualifier_exemplars").insert({
