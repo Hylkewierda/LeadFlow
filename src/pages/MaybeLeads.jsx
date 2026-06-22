@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { Check, X, Pin, Trash2 } from "lucide-react";
+import { Check, X, Pin, Trash2, Combine } from "lucide-react";
 import MoreInfo from "../components/MoreInfo";
 
 const EASE = [0.22, 1, 0.36, 1];
@@ -49,6 +49,10 @@ export default function MaybeLeads() {
   });
   const remove = useMutation({
     mutationFn: ({ id }) => sendJSON(`/api/qualifier-exemplars?id=${id}`, "DELETE"),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["qualifier-exemplars"] }),
+  });
+  const compress = useMutation({
+    mutationFn: () => sendJSON("/api/qualifier-exemplars?workspace=actuals&action=compress", "POST"),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["qualifier-exemplars"] }),
   });
 
@@ -109,6 +113,30 @@ export default function MaybeLeads() {
                 </div>
               </motion.div>
             ))}
+          </div>
+        )}
+
+        {tab === "manage" && count > 0 && (
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <button
+              onClick={() => compress.mutate()}
+              disabled={compress.isPending}
+              className="flex items-center gap-1.5 rounded-lg bg-foreground/[0.06] text-foreground/70 text-[12px] font-medium px-3 py-1.5 hover:bg-foreground/[0.1] active:scale-[0.98] transition-all disabled:opacity-50"
+              title="Distilleer de losse oordelen tot compacte patronen"
+            >
+              <Combine className="w-3.5 h-3.5" />
+              {compress.isPending ? "Comprimeren…" : "Comprimeer oordelen"}
+            </button>
+            {compress.isSuccess && !compress.isPending && (
+              <span className="text-[11px] text-muted-foreground">
+                {compress.data?.skipped
+                  ? compress.data?.reason
+                  : `${compress.data?.compressed} patroon/patronen uit ${compress.data?.archived} oordelen`}
+              </span>
+            )}
+            {compress.isError && (
+              <span className="text-[11px] text-rose-600">Comprimeren mislukt</span>
+            )}
           </div>
         )}
 
