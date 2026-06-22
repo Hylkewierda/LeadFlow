@@ -88,8 +88,8 @@ UI observation: Home polls `/api/workflows` (10s); Leadfinder and Lookalike read
 
 `src/pages/MaybeLeads.jsx` is an in-app triage page for candidates in the MAYBE band (`llm_score` in [40, 64]). It replaces the previous Google-Sheet link.
 
-- **`api/maybe-leads.js`** — `GET` returns MAYBE-band candidates for the workspace (ordered by score desc). `POST { candidateId, verdict }` (verdict = `"GO"` or `"NO-GO"`) writes two things atomically: sets `candidates.status` to `qualified` or `disqualified` (with `qualified_by='user_maybe_triage'`) AND upserts a row in `qualifier_exemplars` (deduped on `(workspace_id, role_title, company_name, verdict)`).
-- **`api/qualifier-exemplars.js`** — `GET` returns all exemplar rows with a count; `PATCH { id }` pins/unpins a row (`is_pinned`); `DELETE ?id=<id>` removes a row. The page shows a counter with a warning when the exemplar set is large, and allows pruning unpinned rows.
+- **`api/maybe-leads.js`** — `GET` returns MAYBE-band candidates for the workspace (ordered by score desc). `POST { candidateId, verdict }` (verdict = `"GO"` or `"NO-GO"`) writes two things atomically: sets `candidates.status` to `qualified` or `disqualified` (with `qualified_by='user_maybe_triage'`) AND upserts a row in `qualifier_exemplars` (deduped on `(workspace_id, linkedin_url)` or `(workspace_id, dedup_key)` where `dedup_key` = `lower(role)|lower(company)|verdict`).
+- **`api/qualifier-exemplars.js`** — `GET` returns all exemplar rows with a count; `PATCH ?id=<id>` pins/unpins a row with body `{ pinned }`; `DELETE ?id=<id>` removes a row. The page shows a counter with a warning when the exemplar set is large, and allows pruning unpinned rows.
 - **Feedback loop:** the exemplar rows are read at the start of each discovery run by `src/qualify/confirmed-exemplars.ts` (in the CLI) and injected into the qualify prompt via `buildSystemPrompt` as positive/negative examples, so human verdicts automatically improve the next run's first-pass scoring.
 - The `qualifier_exemplars` table is **distinct** from the `workspaces.qualifier_feedback` free-text column (migration 019).
 
