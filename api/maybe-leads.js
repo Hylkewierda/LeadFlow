@@ -60,21 +60,21 @@ export default async function handler(req, res) {
       .select("id, workspace_id, linkedin_url, linkedin_profile, llm_reasoning")
       .eq("id", candidateId)
       .maybeSingle();
+    if (cand.error) return res.status(500).json({ error: cand.error.message });
     if (!cand.data) return res.status(404).json({ error: "Candidate not found" });
 
     const p = cand.data.linkedin_profile || {};
     const dedupKey = normalizeDedupKey(p.role, p.company, verdict);
 
-    // 1) Resolve the lead: write the human verdict onto the candidate.
-    const status = verdict === "GO" ? "qualified" : "disqualified";
-    await supabase
-      .from("candidates")
-      .update({ status, qualified_by: "user_maybe_triage" })
-      .eq("id", candidateId);
+    // The two writes below are not transactional (Supabase REST has no client-side
+    // transaction). We order them insert-first so the durable learning signal is
+    // committed before the lead is marked triaged: if the insert fails we return 500
+    // WITHOUT touching candidates.status, so the lead stays in the triage list and the
+    // verdict can be retried (the retry dedups the insert). Every write error surfaces
+    // as a 500 — a verdict is never silently lost.
 
-    // 2) Dedup-guarded insert into the learning store.
-    // Use two separate equality queries (not .or() with string interpolation) so that
-    // commas/quotes in role/company values are passed as bound parameters and never
+    // 1) Dedup check. Two separate equality queries (not .or() with string
+    // interpolation) so commas/quotes in role/company are bound parameters, never
     // parsed as PostgREST filter grammar.
     const byUrl = await supabase
       .from("qualifier_exemplars")
@@ -82,16 +82,19 @@ export default async function handler(req, res) {
       .eq("workspace_id", cand.data.workspace_id)
       .eq("linkedin_url", cand.data.linkedin_url)
       .limit(1);
+    if (byUrl.error) return res.status(500).json({ error: byUrl.error.message });
     const byKey = await supabase
       .from("qualifier_exemplars")
       .select("id")
       .eq("workspace_id", cand.data.workspace_id)
       .eq("dedup_key", dedupKey)
       .limit(1);
+    if (byKey.error) return res.status(500).json({ error: byKey.error.message });
     const isDup = (byUrl.data ?? []).length > 0 || (byKey.data ?? []).length > 0;
 
+    // 2) Insert the learning signal FIRST (durable before we resolve the lead).
     if (!isDup) {
-      await supabase.from("qualifier_exemplars").insert({
+      const ins = await supabase.from("qualifier_exemplars").insert({
         workspace_id: cand.data.workspace_id,
         candidate_id: cand.data.id,
         linkedin_url: cand.data.linkedin_url,
@@ -104,7 +107,16 @@ export default async function handler(req, res) {
         dedup_key: dedupKey,
         source: "maybe-triage",
       });
+      if (ins.error) return res.status(500).json({ error: ins.error.message });
     }
+
+    // 3) Resolve the lead: write the human verdict onto the candidate.
+    const status = verdict === "GO" ? "qualified" : "disqualified";
+    const upd = await supabase
+      .from("candidates")
+      .update({ status, qualified_by: "user_maybe_triage" })
+      .eq("id", candidateId);
+    if (upd.error) return res.status(500).json({ error: upd.error.message });
 
     return res.status(200).json({ ok: true, deduped: isDup });
   }

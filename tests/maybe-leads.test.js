@@ -15,6 +15,11 @@ const state = {
   candidates: [],
   existingExemplars: [],
   candidateById: null,
+  // Injectable write/read errors (default null = success).
+  candidateError: null,
+  dedupError: null,
+  insertError: null,
+  updateError: null,
 };
 const inserted = { exemplars: [], candidateUpdates: [] };
 
@@ -34,10 +39,10 @@ vi.mock("@supabase/supabase-js", () => ({
                   in: () => Promise.resolve({ data: state.candidates, error: null }),
                 }),
               }),
-              maybeSingle: () => Promise.resolve({ data: state.candidateById, error: null }),
+              maybeSingle: () => Promise.resolve({ data: state.candidateById, error: state.candidateError }),
             }),
           }),
-          update: (patch) => ({ eq: (_c, id) => { inserted.candidateUpdates.push({ patch, id }); return Promise.resolve({ error: null }); } }),
+          update: (patch) => ({ eq: (_c, id) => { inserted.candidateUpdates.push({ patch, id }); return Promise.resolve({ error: state.updateError }); } }),
         };
       }
       if (table === "qualifier_exemplars") {
@@ -47,11 +52,11 @@ vi.mock("@supabase/supabase-js", () => ({
           select: () => ({
             eq: () => ({
               eq: () => ({
-                limit: () => Promise.resolve({ data: state.existingExemplars, error: null }),
+                limit: () => Promise.resolve({ data: state.existingExemplars, error: state.dedupError }),
               }),
             }),
           }),
-          insert: (row) => { inserted.exemplars.push(row); return Promise.resolve({ error: null }); },
+          insert: (row) => { inserted.exemplars.push(row); return Promise.resolve({ error: state.insertError }); },
         };
       }
       throw new Error(`unexpected table ${table}`);
@@ -70,6 +75,10 @@ beforeEach(async () => {
   state.candidates = [];
   state.existingExemplars = [];
   state.candidateById = null;
+  state.candidateError = null;
+  state.dedupError = null;
+  state.insertError = null;
+  state.updateError = null;
   inserted.exemplars.length = 0;
   inserted.candidateUpdates.length = 0;
   process.env.SUPABASE_URL = "https://test.supabase.co";
@@ -138,5 +147,29 @@ describe("POST /api/maybe-leads", () => {
     // The dedup_key must contain the comma — proving it was stored as data, not truncated.
     expect(inserted.exemplars[0].dedup_key).toContain(",");
     expect(inserted.exemplars[0].company).toBe("Smith, Jones & Partners");
+  });
+
+  it("returns 500 and does NOT mark the candidate when the exemplar insert fails", async () => {
+    // Insert-first ordering: a failed learning-signal insert must abort before the
+    // candidate is marked triaged, so the verdict is not silently lost and can be retried.
+    state.candidateById = { id: "c3", workspace_id: "ws-1", linkedin_url: "u3",
+      linkedin_profile: { name: "Cara", headline: "Controller", role: "Controller", company: "ShopCo", location: "NL" }, llm_reasoning: "x" };
+    state.existingExemplars = [];
+    state.insertError = { message: "insert boom" };
+    const [req, res] = makeReqRes("POST", { body: { candidateId: "c3", verdict: "GO" } });
+    await handler(req, res);
+    expect(res.statusCode).toBe(500);
+    expect(inserted.candidateUpdates).toHaveLength(0); // status update never ran
+  });
+
+  it("returns 500 when the candidate status update fails", async () => {
+    state.candidateById = { id: "c4", workspace_id: "ws-1", linkedin_url: "u4",
+      linkedin_profile: { name: "Dee", headline: "Controller", role: "Controller", company: "ShopCo", location: "NL" }, llm_reasoning: "x" };
+    state.existingExemplars = [];
+    state.updateError = { message: "update boom" };
+    const [req, res] = makeReqRes("POST", { body: { candidateId: "c4", verdict: "GO" } });
+    await handler(req, res);
+    expect(res.statusCode).toBe(500);
+    expect(inserted.exemplars).toHaveLength(1); // insert ran first (durable), then update failed
   });
 });
