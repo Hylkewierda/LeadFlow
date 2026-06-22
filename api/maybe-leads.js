@@ -17,6 +17,7 @@ export default async function handler(req, res) {
   if (req.method === "GET") {
     const slug = (req.query?.workspace || "actuals").trim();
     const ws = await supabase.from("workspaces").select("id").eq("slug", slug).maybeSingle();
+    if (ws.error) return res.status(500).json({ error: ws.error.message });
     if (!ws.data) return res.status(404).json({ error: `Workspace "${slug}" not found` });
 
     const { data, error } = await supabase
