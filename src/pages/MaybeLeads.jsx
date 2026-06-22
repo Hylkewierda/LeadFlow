@@ -1,104 +1,140 @@
-import { ExternalLink, HelpCircle } from "lucide-react";
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
+import { Check, X, Pin, Trash2 } from "lucide-react";
 import MoreInfo from "../components/MoreInfo";
 
-const MAYBE_LEADS_SHEET_URL =
-  "https://docs.google.com/spreadsheets/d/1l3Ceas2AVQV-P3Cy6-j44WW3J84SvnbcVNhnsPgPsKU/edit?gid=0#gid=0";
+const EASE = [0.22, 1, 0.36, 1];
+const WARN_AT = 60; // soft warning threshold for the feedback counter
+
+async function getJSON(url) {
+  const r = await fetch(url);
+  if (!r.ok) throw new Error((await r.json()).error || "Request failed");
+  return r.json();
+}
+async function sendJSON(url, method, body) {
+  const r = await fetch(url, {
+    method,
+    headers: { "Content-Type": "application/json" },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (!r.ok) throw new Error((await r.json()).error || "Request failed");
+  return r.json();
+}
 
 export default function MaybeLeads() {
+  const qc = useQueryClient();
+  const [tab, setTab] = useState("triage"); // "triage" | "manage"
+
+  const leads = useQuery({
+    queryKey: ["maybe-leads"],
+    queryFn: () => getJSON("/api/maybe-leads?workspace=actuals"),
+  });
+  const exemplars = useQuery({
+    queryKey: ["qualifier-exemplars"],
+    queryFn: () => getJSON("/api/qualifier-exemplars?workspace=actuals"),
+  });
+
+  const verdict = useMutation({
+    mutationFn: ({ candidateId, v }) =>
+      sendJSON("/api/maybe-leads", "POST", { candidateId, verdict: v }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["maybe-leads"] });
+      qc.invalidateQueries({ queryKey: ["qualifier-exemplars"] });
+    },
+  });
+  const pin = useMutation({
+    mutationFn: ({ id, pinned }) => sendJSON(`/api/qualifier-exemplars?id=${id}`, "PATCH", { pinned }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["qualifier-exemplars"] }),
+  });
+  const remove = useMutation({
+    mutationFn: ({ id }) => sendJSON(`/api/qualifier-exemplars?id=${id}`, "DELETE"),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["qualifier-exemplars"] }),
+  });
+
+  const count = exemplars.data?.count ?? 0;
+  const items = leads.data?.candidates ?? [];
+
   return (
     <div className="flex flex-col items-center px-4 sm:px-6 pt-6 pb-8">
       <div className="w-full max-w-lg">
-        {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-          className="mb-8"
-        >
-          <h1 className="text-[26px] font-bold tracking-tight text-foreground">
-            Maybe Leads
-          </h1>
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, ease: EASE }} className="mb-6">
+          <h1 className="text-[26px] font-bold tracking-tight text-foreground">Maybe Leads</h1>
           <p className="text-muted-foreground text-[13px] mt-1">
-            Leads die een score tussen 35-49 hebben en handmatig beoordeeld
-            moeten worden
+            Leads met een score van 40–64 die je handmatig beoordeelt. Je oordeel traint de qualifier voor de volgende run.
           </p>
         </motion.div>
 
-        {/* Info card */}
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.06, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-          className="glass-card rounded-2xl p-5 mb-4"
-        >
-          <div className="flex items-start gap-3">
-            <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-              <HelpCircle className="w-4 h-4 text-amber-600" />
-            </div>
-            <div>
-              <h3 className="text-[14px] font-semibold text-foreground">
-                Wat zijn Maybe Leads?
-              </h3>
-              <p className="text-[12px] text-muted-foreground mt-1 leading-relaxed">
-                De AI qualifier geeft elke lead een score en kwalificatie: GO
-                (score &ge; 50), MAYBE (35-49) of NO-GO (&lt; 35). Maybe leads
-                hebben potentie maar te weinig data om automatisch te
-                kwalificeren. Bekijk ze in de sheet en beoordeel handmatig of ze
-                alsnog GO of NO-GO zijn.
-              </p>
-            </div>
-          </div>
-        </motion.div>
+        {/* Tabs */}
+        <div className="flex gap-2 mb-4">
+          <button onClick={() => setTab("triage")} className={`px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors ${tab === "triage" ? "bg-emerald-600 text-white" : "bg-foreground/[0.06] text-foreground/70"}`}>
+            Te beoordelen ({items.length})
+          </button>
+          <button onClick={() => setTab("manage")} className={`px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors ${tab === "manage" ? "bg-emerald-600 text-white" : "bg-foreground/[0.06] text-foreground/70"}`}>
+            Bevestigd ({count})
+          </button>
+        </div>
 
-        {/* Sheet link */}
-        <motion.a
-          href={MAYBE_LEADS_SHEET_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.12, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-          className="glass-card rounded-2xl p-4 flex items-center gap-4 transition-all duration-300 hover:shadow-lg hover:scale-[1.01] active:scale-[0.99] group cursor-pointer"
-        >
-          <div className="w-10 h-10 rounded-xl bg-foreground/[0.06] flex items-center justify-center group-hover:bg-accent group-hover:accent-glow transition-all duration-300">
-            <HelpCircle className="w-4.5 h-4.5 text-foreground/60 group-hover:text-white transition-colors" />
+        {tab === "manage" && count >= WARN_AT && (
+          <div className="glass-card rounded-xl p-3 mb-3 text-[12px] text-amber-700 bg-amber-50/60">
+            Je hebt {count} bevestigde oordelen. Overweeg minder waardevolle te verwijderen of te comprimeren — dit blok wordt elke run in de qualifier-prompt geladen.
           </div>
-          <div className="flex-1">
-            <h3 className="text-[15px] font-semibold text-foreground">
-              Bekijk Maybe Leads
-            </h3>
-            <p className="text-[12px] text-muted-foreground mt-0.5">
-              Filter op kolom &ldquo;qualification&rdquo; = MAYBE
-            </p>
+        )}
+
+        {tab === "triage" && (
+          <div className="space-y-3">
+            {leads.isLoading && <p className="text-[13px] text-muted-foreground">Laden…</p>}
+            {!leads.isLoading && items.length === 0 && (
+              <p className="text-[13px] text-muted-foreground">Geen maybe-leads om te beoordelen. 🎉</p>
+            )}
+            {items.map((c) => (
+              <motion.div key={c.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: EASE }} className="glass-card rounded-2xl p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <h3 className="text-[14px] font-semibold text-foreground truncate">{c.headline || c.name || "Onbekend profiel"}</h3>
+                    <p className="text-[12px] text-muted-foreground mt-0.5 truncate">
+                      {[c.role, c.company, c.location].filter(Boolean).join(" · ") || "—"}
+                    </p>
+                  </div>
+                  <span className="text-[11px] font-semibold text-amber-600 bg-amber-100 rounded-md px-2 py-0.5 flex-shrink-0">{Math.round(c.llm_score)}</span>
+                </div>
+                {c.llm_reasoning && <p className="text-[12px] text-foreground/70 mt-2 leading-relaxed">{c.llm_reasoning}</p>}
+                <div className="flex gap-2 mt-3">
+                  <button disabled={verdict.isPending} onClick={() => verdict.mutate({ candidateId: c.id, v: "GO" })} className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 text-white text-[13px] font-medium py-2 active:scale-[0.98] transition-transform disabled:opacity-50">
+                    <Check className="w-4 h-4" /> GO
+                  </button>
+                  <button disabled={verdict.isPending} onClick={() => verdict.mutate({ candidateId: c.id, v: "NO-GO" })} className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-foreground/[0.06] text-foreground/70 text-[13px] font-medium py-2 active:scale-[0.98] transition-transform disabled:opacity-50">
+                    <X className="w-4 h-4" /> NO-GO
+                  </button>
+                </div>
+              </motion.div>
+            ))}
           </div>
-          <ExternalLink className="w-4 h-4 text-muted-foreground/30 group-hover:text-accent transition-colors" />
-        </motion.a>
+        )}
 
-        <MoreInfo label="Hoe werkt de score & beoordeling?">
-          <p className="font-semibold text-foreground">Het scoringsysteem</p>
-          <p className="mt-1">
-            Elke lead krijgt een gewogen totaalscore over vier dimensies:
-          </p>
-          <ul className="mt-1 list-disc pl-4 space-y-1">
-            <li><strong>Functietitel (40%)</strong> — bv. Controller, CFO, Finance Manager</li>
-            <li><strong>Branche-fit (25%)</strong> — bv. E-commerce, SaaS, FinTech</li>
-            <li><strong>Bedrijf &amp; schaal (20%)</strong> — bekend bedrijf, past bij ICP</li>
-            <li><strong>Geografie (15%)</strong> — bv. DACH, Nederland, Nordics</li>
-          </ul>
-          <p className="mt-2">
-            Drempels: <strong>GO</strong> bij score &ge; 50 (automatisch
-            gekwalificeerd), <strong>MAYBE</strong> bij 35–49 (handmatige review),{" "}
-            <strong>NO-GO</strong> bij &lt; 35 (niet gekwalificeerd).
-          </p>
+        {tab === "manage" && (
+          <div className="space-y-2">
+            {(exemplars.data?.exemplars ?? []).map((e) => (
+              <div key={e.id} className="glass-card rounded-xl p-3 flex items-center gap-3">
+                <span className={`text-[11px] font-semibold rounded-md px-2 py-0.5 ${e.verdict === "GO" ? "text-emerald-700 bg-emerald-100" : "text-rose-700 bg-rose-100"}`}>{e.verdict}</span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[13px] font-medium text-foreground truncate">{e.headline || "—"}</p>
+                  <p className="text-[11px] text-muted-foreground truncate">{[e.role, e.company].filter(Boolean).join(" · ")}</p>
+                </div>
+                <button onClick={() => pin.mutate({ id: e.id, pinned: !e.pinned })} className={`p-1.5 rounded-lg ${e.pinned ? "text-emerald-600" : "text-foreground/30"}`} title="Pin">
+                  <Pin className="w-4 h-4" />
+                </button>
+                <button onClick={() => remove.mutate({ id: e.id })} className="p-1.5 rounded-lg text-foreground/30 hover:text-rose-600" title="Verwijder">
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+            {count === 0 && <p className="text-[13px] text-muted-foreground">Nog geen bevestigde oordelen.</p>}
+          </div>
+        )}
 
-          <p className="mt-3 font-semibold text-foreground">Een Maybe-lead beoordelen</p>
-          <ol className="mt-1 list-decimal pl-4 space-y-1">
-            <li>Open de Maybe Leads Google Sheet via de knop hierboven.</li>
-            <li>Bekijk de profieldata en de AI-reasoning per lead.</li>
-            <li>Vul je oordeel in: YES (alsnog GO) of NO (definitief NO-GO).</li>
-            <li>Je beoordeling vloeit terug als ground truth en verbetert het AI-model.</li>
-          </ol>
+        <MoreInfo label="Hoe werkt dit?">
+          <p>Elke lead krijgt een AI-score. <strong>40–64</strong> = MAYBE en komt hier terecht. Jouw GO/NO-GO bevestigt de lead én wordt als voorbeeld meegegeven aan de qualifier, zodat de eerste pass van de volgende run beter scoort. Bevestigde oordelen beheer je onder "Bevestigd"; pin de belangrijkste zodat ze nooit worden opgeschoond.</p>
         </MoreInfo>
       </div>
     </div>
