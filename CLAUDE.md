@@ -50,7 +50,7 @@ Current pages: `Home`, `Leadfinder`, `LookalikeSearch`, `InteractionsReasoning`,
 - **Home workflow modes** — the 4 Home buttons (`Home.jsx`) POST to `/api/workflows` (code pipeline, see above); each is also capped at 5 runs/day client-side via the `limiter_{mode}_{date}` localStorage key. (The legacy n8n trigger webhook + `/api/workflow-status` Redis callback were retired in the 2026-06-08 cutover.)
 - **n8n (sheet exports)** — still used by `api/export-to-sheet.js`, `api/export-lookalike-to-sheet.js`, and `SendMessage.jsx` for their own webhooks; unrelated to the Home workflow trigger.
 - **HubSpot** — CRM for contacts/deals; linked from `SendMessage` and `ClientDatabase`.
-- **Google Sheets** — linked from `InteractionsReasoning` and `MaybeLeads` for data viewing and manual lead verdicts.
+- **Google Sheets** — linked from `InteractionsReasoning` for data viewing. (MaybeLeads no longer links to a Sheet; verdicts are now recorded in-app — see below.)
 
 ### Discovery pipeline (via GitHub Actions)
 
@@ -84,17 +84,28 @@ How it works: the DELETE sets `cancel_requested=true` on the row (only when non-
 
 UI observation: Home polls `/api/workflows` (10s); Leadfinder and Lookalike read status directly from Supabase (anon, 3s). Each shows a destructive cancel control only while the run is non-terminal, toggles it to "Annuleren…" (disabled) after click, and renders a neutral `cancelled`/"Geannuleerd" state once the poll observes it. The Lookalike Sheet-export latch fires only on `completed`, never on `cancelled`. The `runs.cancel_requested`/`cancelled_at`/`cancelled` status, `lookalike_searches.cancel_requested`/`cancelled_at`, and `workflow_runs` cancel columns were added by migrations `013`/`014`/`015` (`014` also widened the `runs.status` CHECK to allow `cancelled`).
 
+### MaybeLeads (in-app triage)
+
+`src/pages/MaybeLeads.jsx` is an in-app triage page for candidates in the MAYBE band (`llm_score` in [40, 64]). It replaces the previous Google-Sheet link.
+
+- **`api/maybe-leads.js`** — `GET` returns MAYBE-band candidates for the workspace (ordered by score desc). `POST { candidateId, verdict }` (verdict = `"GO"` or `"NO-GO"`) writes two things atomically: sets `candidates.status` to `qualified` or `disqualified` (with `qualified_by='user_maybe_triage'`) AND upserts a row in `qualifier_exemplars` (deduped on `(workspace_id, role_title, company_name, verdict)`).
+- **`api/qualifier-exemplars.js`** — `GET` returns all exemplar rows with a count; `PATCH { id }` pins/unpins a row (`is_pinned`); `DELETE ?id=<id>` removes a row. The page shows a counter with a warning when the exemplar set is large, and allows pruning unpinned rows.
+- **Feedback loop:** the exemplar rows are read at the start of each discovery run by `src/qualify/confirmed-exemplars.ts` (in the CLI) and injected into the qualify prompt via `buildSystemPrompt` as positive/negative examples, so human verdicts automatically improve the next run's first-pass scoring.
+- The `qualifier_exemplars` table is **distinct** from the `workspaces.qualifier_feedback` free-text column (migration 019).
+
+Required env vars: same as `api/runs.js` (`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`).
+
 ### Autoresearch (Python)
 
-`autoresearch/` is an offline optimization loop that iteratively improves `qualify_prompt.md` (the lead-scoring prompt) by measuring F1 against ground truth assembled from HubSpot deals (closedwon/closedlost) and human verdicts from a Google Sheet.
+`autoresearch/` is an offline optimization loop that iteratively improves `qualify_prompt.md` (the lead-scoring prompt) by measuring F1 against ground truth assembled from HubSpot deals (closedwon/closedlost) and human verdicts from the Supabase `qualifier_exemplars` table.
 
 Loop:
-1. `python evaluate.py export` → writes `results/leads_to_classify.json` (ground truth cached in `results/ground_truth_cache.json`).
+1. `python evaluate.py export` → writes `results/leads_to_classify.json` (ground truth cached in `results/ground_truth_cache.json`). Human verdicts are now read from Supabase `qualifier_exemplars` (not a Google Sheet).
 2. Classifier (Claude / Groq) reads `qualify_prompt.md` + leads → `results/classifications.json`.
 3. `python evaluate.py metrics` → prints F1/precision/recall/accuracy and top false positives/negatives; appends to `results/experiment_log.csv`.
 4. Edit `qualify_prompt.md` (1–2 changes per iteration) and repeat.
 
-Supporting files: `config.py`, `hubspot_client.py`, `program.md`, `requirements.txt`. Detailed Dutch-language explainer in `autoresearch/AUTORESEARCH_UITLEG.md`. Source CSV for human verdicts: `data/reasoning_data.csv`.
+Supporting files: `config.py`, `hubspot_client.py`, `program.md`, `requirements.txt`. Detailed Dutch-language explainer in `autoresearch/AUTORESEARCH_UITLEG.md`.
 
 ## Styling
 
@@ -110,4 +121,4 @@ Deployed to Vercel via GitHub (origin: `Hylkewierda/LeadFlow`). Push to `main` t
 
 - **Frontend (Vite):** `VITE_AUTH_USERS`
 - **Vercel runtime:** `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `GITHUB_PAT` (used by `api/workflows.js` and `api/runs.js`). The `UPSTASH_REDIS_REST_URL`/`UPSTASH_REDIS_REST_TOKEN`/`WORKFLOW_API_KEY` vars are now orphaned after the n8n status-callback retirement and can be removed from Vercel.
-- **Autoresearch:** `HUBSPOT_API_KEY`, `GROQ_API_KEY`, `GROQ_MODEL`
+- **Autoresearch:** `HUBSPOT_API_KEY`, `GROQ_API_KEY`, `GROQ_MODEL`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (required by `evaluate.py` to read human verdicts from `qualifier_exemplars`)
