@@ -83,3 +83,14 @@ export function daysSince(iso) {
   if (!iso) return null;
   return Math.floor(Math.max(0, Date.now() - new Date(iso).getTime()) / 86400000);
 }
+
+/** Stacked-bar segment widths (integer %) for a won/lost/open split. All 0 when empty. */
+export function barSegments(won = 0, lost = 0, open = 0) {
+  const total = won + lost + open;
+  if (total === 0) return { won: 0, lost: 0, open: 0 };
+  return {
+    won: Math.round((won / total) * 100),
+    lost: Math.round((lost / total) * 100),
+    open: Math.round((open / total) * 100),
+  };
+}
