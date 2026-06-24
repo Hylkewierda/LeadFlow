@@ -4,13 +4,13 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Check, ChevronDown, ExternalLink, Inbox, Activity, TrendingUp, Trophy, UserPlus } from "lucide-react";
 import { useAuth } from "@/lib/AuthContext";
-import { useCrmContacts, useAddNote, useCreateContact } from "@/lib/crm/hooks";
+import { useCrmContacts, useAddNote, useCreateContact, useScheduleFollowup } from "@/lib/crm/hooks";
 import { listHomeTopLeads } from "@/lib/topleads/data";
 import { combinedScore } from "@/lib/topleads/scoring";
 import { createPageUrl } from "@/utils";
 import ContactCard from "@/components/crm/ContactCard";
 import StageStepper from "@/components/crm/StageStepper";
-import { daysSince, STAGE_META, PIPELINE_STAGES } from "@/lib/crm/format";
+import { daysSince, STAGE_META, PIPELINE_STAGES, isDue, isOverdue, addDaysISO } from "@/lib/crm/format";
 
 const EASE = [0.22, 1, 0.36, 1];
 
@@ -63,6 +63,7 @@ export default function CrmDashboard() {
   const topLeadsQ = useQuery({ queryKey: ["home-top-leads"], queryFn: listHomeTopLeads });
   const createContact = useCreateContact();
   const addNote = useAddNote();
+  const schedule = useScheduleFollowup();
 
   const open = (id) => navigate(`${createPageUrl("CrmContact")}?id=${id}`);
 
@@ -77,6 +78,10 @@ export default function CrmDashboard() {
   const actieveDeals = contacts
     .filter((c) => ["benaderd", "gesprek", "voorstel"].includes(c.stage))
     .sort((a, b) => new Date(a.last_activity_at) - new Date(b.last_activity_at));
+
+  const vandaagOpvolgen = contacts
+    .filter((c) => isDue(c.next_action_at) && !["gewonnen", "verloren"].includes(c.stage))
+    .sort((a, b) => (a.next_action_at < b.next_action_at ? -1 : a.next_action_at > b.next_action_at ? 1 : 0));
 
   // Health metrics (all rounded)
   const nieuwDezeWeek = contacts.filter((c) => within7Days(c.created_at)).length;
@@ -107,8 +112,49 @@ export default function CrmDashboard() {
 
         {/* Buckets */}
         <div className="space-y-3">
+          {/* Vandaag opvolgen — daily driver */}
+          <Bucket title="Vandaag opvolgen" count={vandaagOpvolgen.length} defaultOpen>
+            {vandaagOpvolgen.length === 0 && <p className="text-[13px] text-muted-foreground">Niets te doen vandaag 🎉</p>}
+            {vandaagOpvolgen.map((c) => (
+              <ContactCard
+                key={c.id}
+                onOpen={() => open(c.id)}
+                lead={{ name: c.full_name, headline: c.headline, role: c.role, company: c.crm_companies?.name, score: c.source_score, stage: c.stage, owner: c.owner }}
+              >
+                <div className="w-full">
+                  {isOverdue(c.next_action_at) && (
+                    <span className="inline-block mb-2 text-[11px] font-semibold text-rose-700 bg-rose-100 rounded-md px-2 py-0.5">Over tijd</span>
+                  )}
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      disabled={addNote.isPending}
+                      onClick={() => addNote.mutate({ id: c.id, body: "Opgevolgd", kind: "contact_moment", author: me })}
+                      className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-emerald-600 text-white text-[12px] font-medium px-3 py-1.5 active:scale-[0.98] transition-transform disabled:opacity-50"
+                    >
+                      Gedaan
+                    </button>
+                    <button
+                      disabled={schedule.isPending}
+                      onClick={() => schedule.mutate({ id: c.id, next_action_at: addDaysISO(1) })}
+                      className="inline-flex items-center justify-center rounded-lg bg-foreground/[0.06] text-foreground/70 text-[12px] font-medium px-3 py-1.5 active:scale-[0.98] transition-transform disabled:opacity-50"
+                    >
+                      +1 dag
+                    </button>
+                    <button
+                      disabled={schedule.isPending}
+                      onClick={() => schedule.mutate({ id: c.id, next_action_at: addDaysISO(7) })}
+                      className="inline-flex items-center justify-center rounded-lg bg-foreground/[0.06] text-foreground/70 text-[12px] font-medium px-3 py-1.5 active:scale-[0.98] transition-transform disabled:opacity-50"
+                    >
+                      +1 week
+                    </button>
+                  </div>
+                </div>
+              </ContactCard>
+            ))}
+          </Bucket>
+
           {/* Top leads — intake */}
-          <Bucket title="Top leads" count={topLeadsOpen.length} defaultOpen>
+          <Bucket title="Top leads" count={topLeadsOpen.length}>
             {topLeadsQ.isLoading && <p className="text-[13px] text-muted-foreground">Laden…</p>}
             {!topLeadsQ.isLoading && topLeadsOpen.length === 0 && (
               <p className="text-[13px] text-muted-foreground">Alle top leads zijn al opgepakt. 🎉</p>

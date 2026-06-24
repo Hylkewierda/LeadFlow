@@ -125,3 +125,13 @@ export function useGenerateOutreach() {
       sendJSON(`/api/crm-contacts?workspace=${WORKSPACE}&id=${contactId}&action=outreach`, "POST"),
   });
 }
+
+export function useScheduleFollowup() {
+  const qc = useQueryClient();
+  return useMutation({
+    // { id, next_action_at } — next_action_at is a YYYY-MM-DD string or null.
+    mutationFn: ({ id, next_action_at }) =>
+      sendJSON(`/api/crm-contacts?workspace=${WORKSPACE}&id=${id}&action=schedule`, "PATCH", { next_action_at }),
+    onSuccess: () => invalidateCrm(qc),
+  });
+}
