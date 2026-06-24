@@ -64,6 +64,13 @@ export function useCrmCompany(id) {
   });
 }
 
+export function useCrmAnalytics() {
+  return useQuery({
+    queryKey: ["crm-analytics"],
+    queryFn: () => getJSON(`/api/crm-analytics?workspace=${WORKSPACE}`),
+  });
+}
+
 // ---- Mutations ----
 
 // Invalidate everything the CRM surfaces touch after a write.

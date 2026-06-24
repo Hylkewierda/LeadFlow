@@ -47,6 +47,7 @@
  *
  * The mainPage value must match a key in the PAGES object exactly.
  */
+import CrmAnalytics from './pages/CrmAnalytics';
 import CrmCompany from './pages/CrmCompany';
 import CrmContact from './pages/CrmContact';
 import CrmDashboard from './pages/CrmDashboard';
@@ -63,6 +64,7 @@ import __Layout from './Layout.jsx';
 
 
 export const PAGES = {
+    "CrmAnalytics": CrmAnalytics,
     "CrmCompany": CrmCompany,
     "CrmContact": CrmContact,
     "CrmDashboard": CrmDashboard,

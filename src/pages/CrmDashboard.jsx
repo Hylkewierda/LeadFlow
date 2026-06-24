@@ -200,6 +200,13 @@ export default function CrmDashboard() {
               ))}
             </div>
             <p className="text-[11px] text-muted-foreground mt-2">Qualifier-F1-trend: geen live bron beschikbaar (autoresearch logt lokaal).</p>
+            <button
+              type="button"
+              onClick={() => navigate(createPageUrl("CrmAnalytics"))}
+              className="mt-3 inline-flex items-center gap-1 text-[12px] font-medium text-emerald-700 hover:underline"
+            >
+              Bekijk analyse →
+            </button>
           </Bucket>
         </div>
       </div>
