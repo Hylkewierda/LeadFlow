@@ -115,6 +115,21 @@ export default function Leadfinder() {
     const updated = await resetCandidate(id);
     setCandidates((prev) => prev.map((c) => (c.id === id ? updated : c)));
   }
+  // Instroom #2: add a strong (65+) candidate to the CRM. Server-side the company
+  // is upserted + linked; the call is idempotent on (workspace, linkedin_url).
+  async function handleAddToCrm(candidate) {
+    const r = await fetch("/api/crm-contacts?workspace=actuals", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ source: "candidate", candidateId: candidate.id }),
+    });
+    if (!r.ok) {
+      const msg = (await r.json().catch(() => ({}))).error || "Toevoegen aan CRM mislukt";
+      alert(msg);
+      throw new Error(msg);
+    }
+    return r.json();
+  }
   async function handleStartRun() {
     try {
       await startRun();
@@ -279,6 +294,7 @@ export default function Leadfinder() {
                     onQualify={handleQualify}
                     onDisqualify={handleDisqualify}
                     onReset={handleReset}
+                    onAddToCrm={handleAddToCrm}
                   />
                 ))}
               </motion.ul>
