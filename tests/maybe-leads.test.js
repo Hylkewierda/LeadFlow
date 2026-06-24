@@ -20,8 +20,10 @@ const state = {
   dedupError: null,
   insertError: null,
   updateError: null,
+  crmCompanies: [],
+  crmContactError: null,
 };
-const inserted = { exemplars: [], candidateUpdates: [] };
+const inserted = { exemplars: [], candidateUpdates: [], crmContacts: [] };
 
 vi.mock("@supabase/supabase-js", () => ({
   createClient: () => ({
@@ -59,6 +61,17 @@ vi.mock("@supabase/supabase-js", () => ({
           insert: (row) => { inserted.exemplars.push(row); return Promise.resolve({ error: state.insertError }); },
         };
       }
+      if (table === "crm_companies") {
+        // upsertCompany: match by url/name (select().eq().eq().limit()), else insert().select().maybeSingle().
+        return {
+          select: () => ({ eq: () => ({ eq: () => ({ limit: () => Promise.resolve({ data: state.crmCompanies, error: null }) }) }) }),
+          insert: () => ({ select: () => ({ maybeSingle: () => Promise.resolve({ data: { id: "co-1" }, error: null }) }) }),
+          update: () => ({ eq: () => Promise.resolve({ error: null }) }),
+        };
+      }
+      if (table === "crm_contacts") {
+        return { insert: (row) => { inserted.crmContacts.push(row); return Promise.resolve({ error: state.crmContactError }); } };
+      }
       throw new Error(`unexpected table ${table}`);
     },
   }),
@@ -79,8 +92,11 @@ beforeEach(async () => {
   state.dedupError = null;
   state.insertError = null;
   state.updateError = null;
+  state.crmCompanies = [];
+  state.crmContactError = null;
   inserted.exemplars.length = 0;
   inserted.candidateUpdates.length = 0;
+  inserted.crmContacts.length = 0;
   process.env.SUPABASE_URL = "https://test.supabase.co";
   process.env.SUPABASE_SERVICE_ROLE_KEY = "service-key";
   handler = (await import("../api/maybe-leads.js")).default;
@@ -116,6 +132,19 @@ describe("POST /api/maybe-leads", () => {
     expect(inserted.candidateUpdates[0].patch.qualified_by).toBe("user_maybe_triage");
     expect(inserted.exemplars[0]).toMatchObject({ verdict: "GO", company: "ShopCo", dedup_key: "controller|shopco|GO" });
     expect(res.body.deduped).toBe(false);
+    // GO also creates the CRM follow-up contact (instroom #1, design §4).
+    expect(inserted.crmContacts).toHaveLength(1);
+    expect(inserted.crmContacts[0]).toMatchObject({ source: "candidate", linkedin_url: "u1", full_name: "Ann", company_id: "co-1" });
+    expect(res.body.crmContactCreated).toBe(true);
+  });
+
+  it("does NOT create a CRM contact on NO-GO", async () => {
+    state.candidateById = { id: "c1", workspace_id: "ws-1", linkedin_url: "u1",
+      linkedin_profile: { name: "Ann", headline: "Controller", role: "Controller", company: "ShopCo", location: "NL" }, llm_reasoning: "twijfel" };
+    const [req, res] = makeReqRes("POST", { body: { candidateId: "c1", verdict: "NO-GO" } });
+    await handler(req, res);
+    expect(res.statusCode).toBe(200);
+    expect(inserted.crmContacts).toHaveLength(0);
   });
 
   it("skips the exemplar insert when a duplicate already exists", async () => {

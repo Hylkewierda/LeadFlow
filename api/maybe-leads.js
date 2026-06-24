@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { normalizeDedupKey } from "../src/lib/dedupKey.js";
+import { upsertCompany } from "../src/lib/crm/companyMatch.js";
 
 function serverSupabase() {
   const url = process.env.SUPABASE_URL;
@@ -57,7 +58,7 @@ export default async function handler(req, res) {
 
     const cand = await supabase
       .from("candidates")
-      .select("id, workspace_id, linkedin_url, linkedin_profile, llm_reasoning")
+      .select("id, workspace_id, linkedin_url, linkedin_profile, llm_reasoning, llm_score")
       .eq("id", candidateId)
       .maybeSingle();
     if (cand.error) return res.status(500).json({ error: cand.error.message });
@@ -118,7 +119,36 @@ export default async function handler(req, res) {
       .eq("id", candidateId);
     if (upd.error) return res.status(500).json({ error: upd.error.message });
 
-    return res.status(200).json({ ok: true, deduped: isDup });
+    // 4) On GO, also create the CRM follow-up contact (instroom #1, design §4).
+    // Idempotent on (workspace_id, linkedin_url); a failure here must NOT lose the
+    // verdict (already durable above), so we report it without rolling back.
+    let crmContactCreated = false;
+    if (verdict === "GO") {
+      try {
+        const companyId = await upsertCompany(supabase, cand.data.workspace_id, { name: p.company ?? null });
+        const ins = await supabase.from("crm_contacts").insert({
+          workspace_id: cand.data.workspace_id,
+          candidate_id: cand.data.id,
+          company_id: companyId,
+          linkedin_url: cand.data.linkedin_url,
+          full_name: p.name ?? "Onbekend",
+          headline: p.headline ?? null,
+          role: p.role ?? null,
+          location: p.location ?? null,
+          source: "candidate",
+          source_score: cand.data.llm_score ?? null,
+        });
+        // 23505 = already a CRM contact for this person; that's fine (idempotent).
+        if (!ins.error) crmContactCreated = true;
+        else if (ins.error.code !== "23505") {
+          return res.status(500).json({ error: ins.error.message });
+        }
+      } catch (err) {
+        return res.status(500).json({ error: err.message });
+      }
+    }
+
+    return res.status(200).json({ ok: true, deduped: isDup, crmContactCreated });
   }
 
   return res.status(405).json({ error: "Method not allowed" });
