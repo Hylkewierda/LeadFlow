@@ -3,7 +3,7 @@ import { useSearchParams, useNavigate, Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ArrowLeft, ExternalLink, Building2, UserPlus, UserMinus, Radio, MessageSquarePlus, Sparkles, Copy, RefreshCw } from "lucide-react";
 import { useAuth } from "@/lib/AuthContext";
-import { useCrmContact, useClaimContact, useAddNote, useGenerateOutreach } from "@/lib/crm/hooks";
+import { useCrmContact, useClaimContact, useAddNote, useGenerateOutreach, useScheduleFollowup } from "@/lib/crm/hooks";
 import { createPageUrl } from "@/utils";
 import StageStepper from "@/components/crm/StageStepper";
 import {
@@ -13,6 +13,8 @@ import {
   stageMeta,
   signalLabel,
   relativeNL,
+  addDaysISO,
+  formatDateNL,
 } from "@/lib/crm/format";
 
 const EASE = [0.22, 1, 0.36, 1];
@@ -44,6 +46,7 @@ export default function CrmContact() {
   const [noteKind, setNoteKind] = useState("note");
 
   const generateOutreach = useGenerateOutreach();
+  const schedule = useScheduleFollowup();
   const [draft, setDraft] = useState("");
   const [kbAvailable, setKbAvailable] = useState(true);
   const [copyState, setCopyState] = useState(null); // null | "ok" | "failed"
@@ -160,6 +163,27 @@ export default function CrmContact() {
         <div className="glass-card rounded-2xl p-4 mb-3">
           <h2 className="text-[13px] font-semibold text-foreground mb-2.5">Fase</h2>
           <StageStepper contactId={id} stage={contact.stage} />
+        </div>
+
+        {/* Volg op */}
+        <div className="glass-card rounded-2xl p-4 mb-3">
+          <h2 className="text-[13px] font-semibold text-foreground mb-1.5">Volg op</h2>
+          <p className="text-[12px] text-foreground/70">
+            {contact.next_action_at ? `Gepland: ${formatDateNL(contact.next_action_at)}` : "Geen opvolging gepland"}
+          </p>
+          <div className="flex flex-wrap items-center gap-2 mt-2">
+            <button onClick={() => schedule.mutate({ id, next_action_at: addDaysISO(1) })} disabled={schedule.isPending} className="rounded-lg bg-foreground/[0.06] text-foreground/70 text-[12px] font-medium px-3 py-1.5 disabled:opacity-50">Morgen</button>
+            <button onClick={() => schedule.mutate({ id, next_action_at: addDaysISO(3) })} disabled={schedule.isPending} className="rounded-lg bg-foreground/[0.06] text-foreground/70 text-[12px] font-medium px-3 py-1.5 disabled:opacity-50">+3 dagen</button>
+            <button onClick={() => schedule.mutate({ id, next_action_at: addDaysISO(7) })} disabled={schedule.isPending} className="rounded-lg bg-foreground/[0.06] text-foreground/70 text-[12px] font-medium px-3 py-1.5 disabled:opacity-50">Volgende week</button>
+            <input
+              type="date"
+              onChange={(e) => e.target.value && schedule.mutate({ id, next_action_at: e.target.value })}
+              className="text-[12px] rounded-lg border border-foreground/10 bg-background px-2 py-1.5"
+            />
+            {contact.next_action_at && (
+              <button onClick={() => schedule.mutate({ id, next_action_at: null })} disabled={schedule.isPending} className="rounded-lg text-rose-600/80 hover:text-rose-700 text-[12px] font-medium px-2 py-1.5 disabled:opacity-50">Wissen</button>
+            )}
+          </div>
         </div>
 
         {/* Score + reasoning */}
