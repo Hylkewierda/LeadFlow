@@ -7,6 +7,8 @@ import {
   MapPin,
   RotateCcw,
   User,
+  Check,
+  UserPlus,
 } from "lucide-react";
 import { formatRelative } from "@/lib/leadfinder/format";
 import { ScorePill } from "./ScorePill";
@@ -23,10 +25,14 @@ const REASON_LABELS = {
   other: "Other",
 };
 
-export function CandidateCard({ candidate, onQualify, onDisqualify, onReset }) {
+export function CandidateCard({ candidate, onQualify, onDisqualify, onReset, onAddToCrm }) {
   const [expanded, setExpanded] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [addedToCrm, setAddedToCrm] = useState(false);
   const p = candidate.linkedin_profile;
+
+  // Strong leads (llm_score >= 65) get a one-click "add to CRM" action (instroom #2).
+  const isStrong = typeof candidate.llm_score === "number" && candidate.llm_score >= 65;
 
   async function handle(fn) {
     setBusy(true);
@@ -93,6 +99,30 @@ export function CandidateCard({ candidate, onQualify, onDisqualify, onReset }) {
               <span className="text-xs text-slate-400">
                 seen {formatRelative(candidate.updated_at)}
               </span>
+              {isStrong && onAddToCrm && (
+                <button
+                  type="button"
+                  disabled={busy || addedToCrm}
+                  onClick={() =>
+                    void handle(async () => {
+                      await onAddToCrm(candidate);
+                      setAddedToCrm(true);
+                    })
+                  }
+                  className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 hover:text-emerald-800 disabled:text-slate-400 disabled:cursor-default"
+                  title="Voeg toe aan CRM"
+                >
+                  {addedToCrm ? (
+                    <>
+                      <Check className="w-3 h-3" aria-hidden /> In CRM
+                    </>
+                  ) : (
+                    <>
+                      <UserPlus className="w-3 h-3" aria-hidden /> Voeg toe aan CRM
+                    </>
+                  )}
+                </button>
+              )}
             </div>
           </div>
         </div>
