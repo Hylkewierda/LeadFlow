@@ -1,6 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "./utils";
-import { LogOut, Home, MessageSquare, Users, BarChart3, HelpCircle, Trophy } from "lucide-react";
+import { LogOut, Home, MessageSquare, Users, BarChart3, HelpCircle, Trophy, KanbanSquare } from "lucide-react";
 import { useAuth } from "@/lib/AuthContext";
 import { WorkflowProvider } from "./components/WorkflowContext";
 import { Toaster } from "@/components/ui/sonner";
@@ -9,6 +9,7 @@ const NAV_ITEMS = [
   { key: "Home", label: "Home", icon: Home },
   { key: "InteractionsReasoning", label: "Interactions", icon: BarChart3 },
   { key: "MaybeLeads", label: "Maybe", icon: HelpCircle },
+  { key: "CrmDashboard", label: "CRM", icon: KanbanSquare },
   { key: "SendMessage", label: "Leads", icon: MessageSquare },
   { key: "ClientDatabase", label: "Database", icon: Users },
   { key: "TopLeads", label: "Top leads", icon: Trophy },

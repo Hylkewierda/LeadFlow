@@ -48,6 +48,7 @@
  * The mainPage value must match a key in the PAGES object exactly.
  */
 import ClientDatabase from './pages/ClientDatabase';
+import CrmDashboard from './pages/CrmDashboard';
 import Home from './pages/Home';
 import InteractionsReasoning from './pages/InteractionsReasoning';
 import KnowledgeBase from './pages/KnowledgeBase';
@@ -62,6 +63,7 @@ import __Layout from './Layout.jsx';
 
 export const PAGES = {
     "ClientDatabase": ClientDatabase,
+    "CrmDashboard": CrmDashboard,
     "Home": Home,
     "InteractionsReasoning": InteractionsReasoning,
     "KnowledgeBase": KnowledgeBase,
