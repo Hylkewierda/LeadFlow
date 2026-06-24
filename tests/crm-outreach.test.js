@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+// Outreach generation lives on the crm-contacts route as POST ?action=outreach
+// (folded in to stay under the Vercel 12-function limit).
 const state = { workspaces: [{ id: "ws-1", slug: "actuals" }], contact: null, contactError: null };
 
 vi.mock("@supabase/supabase-js", () => ({
@@ -9,6 +11,7 @@ vi.mock("@supabase/supabase-js", () => ({
         return { select: () => ({ eq: (_c, slug) => ({ maybeSingle: () => Promise.resolve({ data: state.workspaces.find((w) => w.slug === slug) ?? null, error: null }) }) }) };
       }
       if (table === "crm_contacts") {
+        // outreach branch: select().eq(workspace).eq(id).maybeSingle()
         return { select: () => ({ eq: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve({ data: state.contact, error: state.contactError }) }) }) }) };
       }
       throw new Error(`unexpected table ${table}`);
@@ -46,9 +49,11 @@ const CONTACT = {
   candidates: { signal_type: "content", signal_context: { posts: [{ post_text: "maandafsluiting" }] }, llm_reasoning: "match", linkedin_profile: {} },
 };
 
+const Q = { workspace: "actuals", id: "ct-1", action: "outreach" };
+
 let handler;
 beforeEach(async () => {
-  vi.resetModules();
+  vi.resetModules(); // reset the KB helper's module-level cache between tests
   state.workspaces = [{ id: "ws-1", slug: "actuals" }];
   state.contact = null;
   state.contactError = null;
@@ -56,20 +61,13 @@ beforeEach(async () => {
   process.env.SUPABASE_SERVICE_ROLE_KEY = "service-key";
   process.env.ANTHROPIC_API_KEY = "anthropic-key";
   process.env.GITHUB_PAT = "gh-pat";
-  handler = (await import("../api/crm-outreach.js")).default;
+  handler = (await import("../api/crm-contacts.js")).default;
 });
 
-describe("POST /api/crm-outreach", () => {
-  it("405 on non-POST", async () => {
+describe("POST /api/crm-contacts?action=outreach", () => {
+  it("400 when id is missing", async () => {
     installFetch();
-    const [req, res] = makeReqRes("GET");
-    await handler(req, res);
-    expect(res.statusCode).toBe(405);
-  });
-
-  it("400 when contactId is missing", async () => {
-    installFetch();
-    const [req, res] = makeReqRes("POST", { query: { workspace: "actuals" }, body: {} });
+    const [req, res] = makeReqRes("POST", { query: { workspace: "actuals", action: "outreach" }, body: {} });
     await handler(req, res);
     expect(res.statusCode).toBe(400);
   });
@@ -77,7 +75,7 @@ describe("POST /api/crm-outreach", () => {
   it("404 when the contact is not found", async () => {
     installFetch();
     state.contact = null;
-    const [req, res] = makeReqRes("POST", { query: { workspace: "actuals" }, body: { contactId: "ct-1" } });
+    const [req, res] = makeReqRes("POST", { query: Q });
     await handler(req, res);
     expect(res.statusCode).toBe(404);
   });
@@ -85,7 +83,7 @@ describe("POST /api/crm-outreach", () => {
   it("returns a message with kbAvailable true on the happy path", async () => {
     installFetch();
     state.contact = CONTACT;
-    const [req, res] = makeReqRes("POST", { query: { workspace: "actuals" }, body: { contactId: "ct-1" } });
+    const [req, res] = makeReqRes("POST", { query: Q });
     await handler(req, res);
     expect(res.statusCode).toBe(200);
     expect(res.body.message).toContain("Hoi Ann");
@@ -95,7 +93,7 @@ describe("POST /api/crm-outreach", () => {
   it("still returns a message with kbAvailable false when the KB fetch fails", async () => {
     installFetch({ githubOk: false });
     state.contact = CONTACT;
-    const [req, res] = makeReqRes("POST", { query: { workspace: "actuals" }, body: { contactId: "ct-1" } });
+    const [req, res] = makeReqRes("POST", { query: Q });
     await handler(req, res);
     expect(res.statusCode).toBe(200);
     expect(res.body.kbAvailable).toBe(false);
@@ -105,7 +103,7 @@ describe("POST /api/crm-outreach", () => {
   it("500 when the Anthropic call fails", async () => {
     installFetch({ anthropicOk: false });
     state.contact = CONTACT;
-    const [req, res] = makeReqRes("POST", { query: { workspace: "actuals" }, body: { contactId: "ct-1" } });
+    const [req, res] = makeReqRes("POST", { query: Q });
     await handler(req, res);
     expect(res.statusCode).toBe(500);
   });

@@ -1,6 +1,10 @@
 import { createClient } from "@supabase/supabase-js";
 import { normalizeDedupKey } from "../src/lib/dedupKey.js";
 import { resolveWorkspaceId, upsertCompany } from "../src/lib/crm/companyMatch.js";
+import { fetchKbText } from "../src/lib/kb/readKb.js";
+import { buildOutreachPrompt } from "../src/lib/crm/outreachPrompt.js";
+
+const OUTREACH_MODEL = process.env.ANTHROPIC_OUTREACH_MODEL || "claude-sonnet-4-6";
 
 // CRM contacts route — list / get / create / update-stage / claim / add-note.
 // All writes use the service-role key; every query is explicitly workspace-scoped
@@ -100,6 +104,58 @@ export default async function handler(req, res) {
       const action = req.query?.action;
       const wsId = await resolveWorkspaceId(supabase, req.query?.workspace);
       if (!wsId) return res.status(404).json({ error: "Workspace not found" });
+
+      // Generate a first outreach message from the contact's context + the live KB.
+      // Stateless: returns text only, logs nothing, changes no stage. (Folded in here
+      // rather than a separate route to stay under the Vercel 12-function limit.)
+      if (action === "outreach") {
+        const id = req.query?.id;
+        if (!id) return res.status(400).json({ error: "Missing id" });
+
+        const oc = await supabase
+          .from("crm_contacts")
+          .select("id, full_name, role, headline, location, linkedin_url, stage, crm_companies ( name ), candidates ( signal_type, signal_context, llm_reasoning, linkedin_profile )")
+          .eq("workspace_id", wsId)
+          .eq("id", id)
+          .maybeSingle();
+        if (oc.error) return res.status(500).json({ error: oc.error.message });
+        if (!oc.data) return res.status(404).json({ error: "Contact not found" });
+
+        // KB is best-effort: failure never blocks generation.
+        let kbText = "";
+        let kbAvailable = false;
+        try {
+          const kb = await fetchKbText(process.env.GITHUB_PAT);
+          kbText = kb.text;
+          kbAvailable = true;
+        } catch (e) {
+          console.error("KB fetch failed:", e.message);
+        }
+
+        const { system, user } = buildOutreachPrompt({
+          contact: oc.data,
+          candidate: oc.data.candidates || null,
+          companyName: oc.data.crm_companies?.name ?? null,
+          kbText,
+        });
+
+        const apiKey = process.env.ANTHROPIC_API_KEY;
+        if (!apiKey) return res.status(500).json({ error: "Missing ANTHROPIC_API_KEY" });
+
+        const resp = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+          body: JSON.stringify({ model: OUTREACH_MODEL, max_tokens: 600, system, messages: [{ role: "user", content: user }] }),
+        });
+        if (!resp.ok) {
+          const t = (await resp.text()).slice(0, 200);
+          return res.status(500).json({ error: `Anthropic error ${resp.status}: ${t}` });
+        }
+        const json = await resp.json();
+        const message = (json?.content ?? []).map((b) => (b?.type === "text" ? b.text : "")).join("").trim();
+        if (!message) return res.status(500).json({ error: "Lege respons van het model" });
+        return res.status(200).json({ message, kbAvailable });
+      }
 
       if (action === "note") {
         const id = req.query?.id;

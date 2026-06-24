@@ -121,6 +121,7 @@ export function useAddNote() {
 
 export function useGenerateOutreach() {
   return useMutation({
-    mutationFn: ({ contactId }) => sendJSON(`/api/crm-outreach?workspace=${WORKSPACE}`, "POST", { contactId }),
+    mutationFn: ({ contactId }) =>
+      sendJSON(`/api/crm-contacts?workspace=${WORKSPACE}&id=${contactId}&action=outreach`, "POST"),
   });
 }

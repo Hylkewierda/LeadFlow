@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildOutreachPrompt, ACTUALS_FALLBACK } from "../api/crm-outreach.js";
+import { buildOutreachPrompt, ACTUALS_FALLBACK } from "../src/lib/crm/outreachPrompt.js";
 
 const CONTACT = { full_name: "Ann de Vries", role: "Controller", location: "Amsterdam" };
 const CANDIDATE = {
