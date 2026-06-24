@@ -28,7 +28,7 @@ const DISQUALIFY_REASONS = [
 ];
 
 const CONTACT_COLS =
-  "id, workspace_id, candidate_id, company_id, linkedin_url, full_name, headline, role, location, source, source_score, stage, owner, disqualify_reason, last_activity_at, created_at, updated_at";
+  "id, workspace_id, candidate_id, company_id, linkedin_url, full_name, headline, role, location, source, source_score, stage, owner, disqualify_reason, last_activity_at, next_action_at, created_at, updated_at";
 
 export default async function handler(req, res) {
   const supabase = serverSupabase();
@@ -184,7 +184,8 @@ export default async function handler(req, res) {
         });
         if (ins.error) return res.status(500).json({ error: ins.error.message });
 
-        // A logged contact moment advances nieuw → benaderd automatically (§4).
+        // A logged contact moment advances nieuw → benaderd automatically (§4) and
+        // clears next_action_at (the follow-up is done).
         if (kind === "contact_moment" && contact.data.stage === "nieuw") {
           const adv = await supabase.rpc("crm_set_stage", {
             p_contact_id: id,
@@ -193,8 +194,11 @@ export default async function handler(req, res) {
             p_author: body.author ?? null,
           });
           if (adv.error) return res.status(500).json({ error: adv.error.message });
+          await supabase.from("crm_contacts").update({ next_action_at: null }).eq("id", id);
         } else {
-          await supabase.from("crm_contacts").update({ last_activity_at: new Date().toISOString() }).eq("id", id);
+          const patch = { last_activity_at: new Date().toISOString() };
+          if (kind === "contact_moment") patch.next_action_at = null;
+          await supabase.from("crm_contacts").update(patch).eq("id", id);
         }
         return res.status(200).json({ ok: true });
       }
@@ -311,6 +315,23 @@ export default async function handler(req, res) {
         const upd = await supabase
           .from("crm_contacts")
           .update({ owner })
+          .eq("workspace_id", wsId)
+          .eq("id", id)
+          .select(CONTACT_COLS)
+          .maybeSingle();
+        if (upd.error) return res.status(500).json({ error: upd.error.message });
+        if (!upd.data) return res.status(404).json({ error: "Contact not found" });
+        return res.status(200).json({ contact: upd.data });
+      }
+
+      if (action === "schedule") {
+        const next = body.next_action_at ?? null;
+        if (next !== null && !/^\d{4}-\d{2}-\d{2}$/.test(String(next))) {
+          return res.status(400).json({ error: "next_action_at must be YYYY-MM-DD or null" });
+        }
+        const upd = await supabase
+          .from("crm_contacts")
+          .update({ next_action_at: next })
           .eq("workspace_id", wsId)
           .eq("id", id)
           .select(CONTACT_COLS)
