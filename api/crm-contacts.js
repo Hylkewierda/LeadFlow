@@ -194,11 +194,11 @@ export default async function handler(req, res) {
             p_author: body.author ?? null,
           });
           if (adv.error) return res.status(500).json({ error: adv.error.message });
-          await supabase.from("crm_contacts").update({ next_action_at: null }).eq("id", id);
+          await supabase.from("crm_contacts").update({ next_action_at: null }).eq("workspace_id", wsId).eq("id", id);
         } else {
           const patch = { last_activity_at: new Date().toISOString() };
           if (kind === "contact_moment") patch.next_action_at = null;
-          await supabase.from("crm_contacts").update(patch).eq("id", id);
+          await supabase.from("crm_contacts").update(patch).eq("workspace_id", wsId).eq("id", id);
         }
         return res.status(200).json({ ok: true });
       }

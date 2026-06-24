@@ -100,4 +100,13 @@ describe("POST /api/crm-contacts?action=note clears next_action_at on a contact_
     expect(res.statusCode).toBe(200);
     expect(calls.updates.some((p) => "next_action_at" in p)).toBe(false);
   });
+
+  it("clears next_action_at AND advances stage for a contact_moment in 'nieuw'", async () => {
+    state.contact = { id: "ct-1", stage: "nieuw" };
+    const [req, res] = makeReqRes("POST", { query: { workspace: "actuals", id: "ct-1", action: "note" }, body: { body: "Eerste belletje", kind: "contact_moment" } });
+    await handler(req, res);
+    expect(res.statusCode).toBe(200);
+    expect(calls.rpc.some((r) => r.name === "crm_set_stage" && r.params.p_stage === "benaderd")).toBe(true);
+    expect(calls.updates.some((p) => p.next_action_at === null)).toBe(true);
+  });
 });
