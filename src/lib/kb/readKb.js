@@ -9,7 +9,7 @@ const GH = "https://api.github.com";
 const CACHE_TTL_MS = 5 * 60 * 1000;
 const FETCH_TIMEOUT_MS = 8000;
 
-let cache = null; // { text, truncated, at }
+let cache = null; // { rawText, at }
 
 function ghHeaders(pat) {
   return {
@@ -40,34 +40,32 @@ function contentsUrl(path) {
  */
 export async function fetchKbText(pat, { maxChars = 12000 } = {}) {
   if (!pat) throw new Error("Missing GITHUB_PAT");
+
+  let rawText;
   if (cache && Date.now() - cache.at < CACHE_TTL_MS) {
-    return { text: cache.text, truncated: cache.truncated };
+    rawText = cache.rawText;
+  } else {
+    const treeRes = await ghFetch(`${GH}/repos/${REPO}/git/trees/${BRANCH}?recursive=1`, pat);
+    if (!treeRes.ok) throw new Error(`GitHub tree failed (${treeRes.status})`);
+    const tree = await treeRes.json();
+    const paths = (tree.tree ?? [])
+      .filter((n) => n.type === "blob" && n.path.startsWith(KB_PREFIX) && n.path.endsWith(".md"))
+      .map((n) => n.path)
+      .sort();
+
+    const parts = [];
+    for (const path of paths) {
+      const r = await ghFetch(contentsUrl(path), pat);
+      if (!r.ok) throw new Error(`GitHub read failed for ${path} (${r.status})`);
+      const json = await r.json();
+      const body = Buffer.from(json.content ?? "", "base64").toString("utf8");
+      parts.push(`## ${path}\n${body.trim()}`);
+    }
+    rawText = parts.join("\n\n");
+    cache = { rawText, at: Date.now() };
   }
 
-  const treeRes = await ghFetch(`${GH}/repos/${REPO}/git/trees/${BRANCH}?recursive=1`, pat);
-  if (!treeRes.ok) throw new Error(`GitHub tree failed (${treeRes.status})`);
-  const tree = await treeRes.json();
-  const paths = (tree.tree ?? [])
-    .filter((n) => n.type === "blob" && n.path.startsWith(KB_PREFIX) && n.path.endsWith(".md"))
-    .map((n) => n.path)
-    .sort();
-
-  const parts = [];
-  for (const path of paths) {
-    const r = await ghFetch(contentsUrl(path), pat);
-    if (!r.ok) throw new Error(`GitHub read failed for ${path} (${r.status})`);
-    const json = await r.json();
-    const body = Buffer.from(json.content ?? "", "base64").toString("utf8");
-    parts.push(`## ${path}\n${body.trim()}`);
-  }
-
-  let text = parts.join("\n\n");
-  let truncated = false;
-  if (text.length > maxChars) {
-    text = text.slice(0, maxChars);
-    truncated = true;
-  }
-
-  cache = { text, truncated, at: Date.now() };
+  const truncated = rawText.length > maxChars;
+  const text = truncated ? rawText.slice(0, maxChars) : rawText;
   return { text, truncated };
 }

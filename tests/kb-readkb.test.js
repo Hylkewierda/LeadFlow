@@ -63,4 +63,17 @@ describe("fetchKbText", () => {
     installFetch({ treeOk: false });
     await expect(fetchKbText("pat")).rejects.toThrow(/tree failed/);
   });
+
+  it("throws on a GitHub content error", async () => {
+    installFetch({ files: { "kb/actuals/a.md": "x" }, contentOk: false });
+    await expect(fetchKbText("pat")).rejects.toThrow(/read failed/);
+  });
+
+  it("caches across calls (second call does not refetch)", async () => {
+    installFetch({ files: { "kb/actuals/a.md": "body" } });
+    await fetchKbText("pat");
+    const callsAfterFirst = global.fetch.mock.calls.length;
+    await fetchKbText("pat");
+    expect(global.fetch.mock.calls.length).toBe(callsAfterFirst);
+  });
 });
