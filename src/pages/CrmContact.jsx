@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { useSearchParams, useNavigate, Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowLeft, ExternalLink, Building2, UserPlus, UserMinus, Radio, MessageSquarePlus } from "lucide-react";
+import { ArrowLeft, ExternalLink, Building2, UserPlus, UserMinus, Radio, MessageSquarePlus, Sparkles, Copy, RefreshCw } from "lucide-react";
 import { useAuth } from "@/lib/AuthContext";
-import { useCrmContact, useClaimContact, useAddNote } from "@/lib/crm/hooks";
+import { useCrmContact, useClaimContact, useAddNote, useGenerateOutreach } from "@/lib/crm/hooks";
 import { createPageUrl } from "@/utils";
 import StageStepper from "@/components/crm/StageStepper";
 import {
@@ -42,6 +42,32 @@ export default function CrmContact() {
 
   const [noteBody, setNoteBody] = useState("");
   const [noteKind, setNoteKind] = useState("note");
+
+  const generateOutreach = useGenerateOutreach();
+  const [draft, setDraft] = useState("");
+  const [kbAvailable, setKbAvailable] = useState(true);
+  const [copyState, setCopyState] = useState(null); // null | "ok" | "failed"
+
+  const generate = () => {
+    setCopyState(null);
+    generateOutreach.mutate(
+      { contactId: id },
+      { onSuccess: (d) => { setDraft(d.message); setKbAvailable(d.kbAvailable); } },
+    );
+  };
+
+  const copyAndLog = async () => {
+    let copied = true;
+    try {
+      await navigator.clipboard.writeText(draft);
+    } catch {
+      copied = false;
+    }
+    addNote.mutate(
+      { id, body: draft, kind: "contact_moment", author: me },
+      { onSuccess: () => setCopyState(copied ? "ok" : "failed") },
+    );
+  };
 
   if (!id) return <Empty msg="Geen contact geselecteerd." />;
   if (isLoading) return <Empty msg="Laden…" />;
@@ -143,6 +169,54 @@ export default function CrmContact() {
             <p className="text-[12px] text-foreground/70 leading-relaxed">{reasoning}</p>
           </div>
         )}
+
+        {/* Outreach */}
+        <div className="glass-card rounded-2xl p-4 mb-3">
+          <h2 className="text-[13px] font-semibold text-foreground mb-2.5">Outreach</h2>
+          {!draft && (
+            <button
+              onClick={generate}
+              disabled={generateOutreach.isPending}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 text-white text-[13px] font-medium px-3 py-2 active:scale-[0.98] transition-transform disabled:opacity-50"
+            >
+              <Sparkles className="w-4 h-4" /> {generateOutreach.isPending ? "Genereren…" : "Genereer bericht"}
+            </button>
+          )}
+          {generateOutreach.isError && (
+            <p className="text-[12px] text-rose-600 mt-2">{generateOutreach.error?.message || "Genereren mislukt."}</p>
+          )}
+          {draft && (
+            <>
+              <textarea
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                rows={6}
+                className="w-full text-[13px] rounded-xl border border-foreground/10 bg-background px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+              />
+              {!kbAvailable && (
+                <p className="text-[11px] text-amber-700 mt-1.5">Actuals-context (KB) even niet beschikbaar — bericht zonder KB gegenereerd.</p>
+              )}
+              <div className="flex flex-wrap items-center gap-2 mt-2">
+                <button
+                  onClick={copyAndLog}
+                  disabled={addNote.isPending || !draft.trim()}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 text-white text-[12px] font-medium px-3 py-1.5 disabled:opacity-50"
+                >
+                  <Copy className="w-3.5 h-3.5" /> Kopieer & markeer benaderd
+                </button>
+                <button
+                  onClick={generate}
+                  disabled={generateOutreach.isPending}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-foreground/[0.06] text-foreground/70 text-[12px] font-medium px-3 py-1.5 disabled:opacity-50"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" /> Regenereer
+                </button>
+                {copyState === "ok" && <span className="text-[11px] text-emerald-700">Gekopieerd ✓</span>}
+                {copyState === "failed" && <span className="text-[11px] text-amber-700">Kopiëren mislukt — plak handmatig</span>}
+              </div>
+            </>
+          )}
+        </div>
 
         {/* Full profile */}
         {profile && (

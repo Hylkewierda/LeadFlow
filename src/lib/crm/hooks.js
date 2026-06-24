@@ -118,3 +118,9 @@ export function useAddNote() {
     onSuccess: () => invalidateCrm(qc),
   });
 }
+
+export function useGenerateOutreach() {
+  return useMutation({
+    mutationFn: ({ contactId }) => sendJSON(`/api/crm-outreach?workspace=${WORKSPACE}`, "POST", { contactId }),
+  });
+}
