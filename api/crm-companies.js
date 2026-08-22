@@ -81,7 +81,7 @@ export default async function handler(req, res) {
       const key = req.query?.key;
       if (key) {
         const account = buildWarmAccountDetail({ ...input, key });
-        if (!account) return res.status(404).json({ error: "Account not found" });
+        if (!account) return res.status(200).json({ account: null });
         return res.status(200).json({ account });
       }
       return res.status(200).json({ accounts: buildWarmAccounts(input).slice(0, 15) });

@@ -77,17 +77,21 @@ describe("GET ?action=warm", () => {
     expect(res.body.accounts[0]).toMatchObject({ key: "shopco", in_crm: true, company_id: "co-1", person_count: 2 });
   });
 
-  it("detail-modus: geeft people + timeline voor een key, 404 voor onbekende key", async () => {
+  it("detail-modus: geeft people + timeline voor een key", async () => {
     state.candidates = [cand()];
     const [req, res] = makeReqRes("GET", { workspace: "actuals", action: "warm", key: "shopco" });
     await handler(req, res);
     expect(res.statusCode).toBe(200);
     expect(res.body.account.people).toHaveLength(1);
     expect(res.body.account.timeline).toHaveLength(1);
+  });
 
+  it("detail-modus: geeft account:null voor onbekende key", async () => {
+    state.candidates = [cand()];
     const [req2, res2] = makeReqRes("GET", { workspace: "actuals", action: "warm", key: "nope" });
     await handler(req2, res2);
-    expect(res2.statusCode).toBe(404);
+    expect(res2.statusCode).toBe(200);
+    expect(res2.body.account).toBeNull();
   });
 
   it("onbekende workspace → 404", async () => {

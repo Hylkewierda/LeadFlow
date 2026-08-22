@@ -39,6 +39,7 @@ export default function CrmCompany() {
 
   if (!id && previewKey) {
     if (warmQ.isLoading) return <Empty msg="Laden…" />;
+    if (warmQ.isError) return <Empty msg={warmQ.error?.message || "Fout bij laden."} />;
     if (!warm) return <Empty msg="Account niet gevonden." />;
     return (
       <div className="flex flex-col items-center px-4 sm:px-6 pt-6 pb-8">
@@ -61,6 +62,9 @@ export default function CrmCompany() {
             >
               Voeg toe aan CRM
             </button>
+            {createCompany.isError && (
+              <p className="text-[11px] font-medium text-rose-700 mt-2">Toevoegen mislukt — probeer het opnieuw.</p>
+            )}
           </motion.div>
           <div className="space-y-3">
             <PersonaGapPanel personas={warm.personas} />
@@ -80,6 +84,7 @@ export default function CrmCompany() {
 
   const rollup = data?.rollup ?? {};
   const contacts = data?.contacts ?? [];
+  const contactIdByUrl = new Map(contacts.map((c) => [c.linkedin_url, c.id]));
   const maxScore = roundScore(rollup.max_source_score);
   const furthest = stageMeta(rollup.furthest_stage);
 
@@ -161,7 +166,7 @@ export default function CrmCompany() {
           <div className="space-y-3 mt-3">
             <PersonaGapPanel personas={warm.personas} />
             <SignalTimeline timeline={warm.timeline} />
-            <PeopleList people={warm.people} personaLabel={personaLabel} />
+            <PeopleList people={warm.people} personaLabel={personaLabel} contactIdByUrl={contactIdByUrl} />
           </div>
         )}
       </div>
@@ -169,29 +174,48 @@ export default function CrmCompany() {
   );
 }
 
-function PeopleList({ people, personaLabel }) {
+function PeopleList({ people, personaLabel, contactIdByUrl = new Map() }) {
   if (!people?.length) return null;
   return (
     <div className="glass-card rounded-xl p-3">
       <h3 className="text-[12px] font-semibold text-foreground mb-2">Gevonden personen</h3>
       <div className="space-y-2">
-        {people.map((p) => (
-          <div key={p.linkedin_url} className="flex items-center gap-3">
-            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-foreground/[0.06] flex items-center justify-center text-[11px] font-semibold text-foreground/70">
-              {initials(p.name)}
+        {people.map((p) => {
+          const rowContent = (
+            <>
+              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-foreground/[0.06] flex items-center justify-center text-[11px] font-semibold text-foreground/70">
+                {initials(p.name)}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[13px] font-medium text-foreground truncate">{p.name ?? "Onbekend"}</p>
+                <p className="text-[11px] text-muted-foreground truncate">{p.role || p.headline || "—"}</p>
+              </div>
+              <span className="text-[10px] font-medium text-foreground/50 flex-shrink-0">{personaLabel(p.persona)}</span>
+              {p.score != null && (
+                <span className={`text-[11px] font-semibold rounded-full px-2 py-0.5 flex-shrink-0 ${scorePillClasses(p.score)}`}>
+                  {roundScore(p.score)}
+                </span>
+              )}
+            </>
+          );
+          const contactId = contactIdByUrl?.get(p.linkedin_url);
+          if (contactId) {
+            return (
+              <Link
+                key={p.linkedin_url}
+                to={`${createPageUrl("CrmContact")}?id=${contactId}`}
+                className="flex items-center gap-3 hover:bg-foreground/[0.02] transition-colors"
+              >
+                {rowContent}
+              </Link>
+            );
+          }
+          return (
+            <div key={p.linkedin_url} className="flex items-center gap-3">
+              {rowContent}
             </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-[13px] font-medium text-foreground truncate">{p.name ?? "Onbekend"}</p>
-              <p className="text-[11px] text-muted-foreground truncate">{p.role || p.headline || "—"}</p>
-            </div>
-            <span className="text-[10px] font-medium text-foreground/50 flex-shrink-0">{personaLabel(p.persona)}</span>
-            {p.score != null && (
-              <span className={`text-[11px] font-semibold rounded-full px-2 py-0.5 flex-shrink-0 ${scorePillClasses(p.score)}`}>
-                {roundScore(p.score)}
-              </span>
-            )}
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
