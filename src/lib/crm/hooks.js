@@ -135,3 +135,34 @@ export function useScheduleFollowup() {
     onSuccess: () => invalidateCrm(qc),
   });
 }
+
+// ---- Warme accounts (spec 2026-08-22) ----
+
+export function useWarmAccounts() {
+  return useQuery({
+    queryKey: ["warm-accounts"],
+    queryFn: () => getJSON(`/api/crm-companies?workspace=${WORKSPACE}&action=warm`),
+    select: (d) => d.accounts ?? [],
+  });
+}
+
+export function useWarmAccountDetail(key) {
+  return useQuery({
+    queryKey: ["warm-account", key],
+    queryFn: () => getJSON(`/api/crm-companies?workspace=${WORKSPACE}&action=warm&key=${encodeURIComponent(key)}`),
+    select: (d) => d.account,
+    enabled: !!key,
+  });
+}
+
+export function useCreateCompany() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body) => sendJSON(`/api/crm-companies?workspace=${WORKSPACE}&action=create`, "POST", body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["crm-companies"] });
+      qc.invalidateQueries({ queryKey: ["warm-accounts"] });
+      qc.invalidateQueries({ queryKey: ["warm-account"] });
+    },
+  });
+}
