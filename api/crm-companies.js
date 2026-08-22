@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
-import { resolveWorkspaceId, furthestStageLabel } from "../src/lib/crm/companyMatch.js";
+import { resolveWorkspaceId, furthestStageLabel, upsertCompany } from "../src/lib/crm/companyMatch.js";
+import { buildWarmAccounts, buildWarmAccountDetail } from "../src/lib/crm/warmAccounts.js";
 
 // CRM companies route — list (with derived rollup) and get-by-id (rollup + contacts).
 // Read-only in v1. Workspace-scoped. Design: crm/leadflow-crm-design.md §7.
@@ -38,10 +39,53 @@ export default async function handler(req, res) {
   const supabase = serverSupabase();
 
   try {
+    const action = req.query?.action;
+
+    if (req.method === "POST") {
+      if (action !== "create") return res.status(405).json({ error: "Method not allowed" });
+      const wsId = await resolveWorkspaceId(supabase, req.query?.workspace);
+      if (!wsId) return res.status(404).json({ error: "Workspace not found" });
+      const name = (req.body?.name ?? "").trim();
+      if (!name) return res.status(400).json({ error: "name is required" });
+      const companyId = await upsertCompany(supabase, wsId, { name });
+      return res.status(201).json({ companyId });
+    }
+
     if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
 
     const wsId = await resolveWorkspaceId(supabase, req.query?.workspace);
     if (!wsId) return res.status(404).json({ error: "Workspace not found" });
+
+    if (action === "warm") {
+      const [cands, htl, companies] = await Promise.all([
+        supabase
+          .from("candidates")
+          .select("linkedin_url, linkedin_profile, signal_type, signal_context, signal_history, llm_score, status, created_at")
+          .eq("workspace_id", wsId)
+          .not("linkedin_profile->>company", "is", null),
+        supabase
+          .from("home_top_leads")
+          .select("linkedin_url, profile, signal_context, icp_score, scored_at")
+          .eq("workspace_id", wsId),
+        supabase.from("crm_companies").select("id, name, name_normalized").eq("workspace_id", wsId),
+      ]);
+      for (const r of [cands, htl, companies]) {
+        if (r.error) return res.status(500).json({ error: r.error.message });
+      }
+      const input = {
+        candidates: cands.data ?? [],
+        homeTopLeads: htl.data ?? [],
+        crmCompanies: companies.data ?? [],
+        now: new Date(),
+      };
+      const key = req.query?.key;
+      if (key) {
+        const account = buildWarmAccountDetail({ ...input, key });
+        if (!account) return res.status(404).json({ error: "Account not found" });
+        return res.status(200).json({ account });
+      }
+      return res.status(200).json({ accounts: buildWarmAccounts(input).slice(0, 15) });
+    }
 
     const id = req.query?.id;
 
