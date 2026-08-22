@@ -4,22 +4,22 @@
 // eerst op role en dan op headline. Uitbreiden = patroon + testregel toevoegen.
 
 export const PERSONAS = [
-  { key: "payments", label: "Head of Payments", patterns: ["payment"] },
+  { key: "payments", label: "Head of Payments", patterns: [/\bpayments?\b/] },
   {
     key: "finance_leadership",
     label: "Finance-leiderschap",
-    patterns: ["cfo", "chief financial", "vp finance", "finance director", "financieel directeur", "head of finance"],
+    patterns: [/\bcfo\b/, /chief financial/, /vp (?:of )?finance/, /finance director/, /financieel directeur/, /head of finance/],
   },
-  { key: "controller", label: "Controller", patterns: ["controller"] },
+  { key: "controller", label: "Controller", patterns: [/\bcontroller\b/] },
   {
     key: "economic_buyer",
     label: "Economic buyer",
-    patterns: ["ceo", "coo", "founder", "oprichter", "managing director", "algemeen directeur", "eigenaar", "owner"],
+    patterns: [/\bceo\b/, /\bcoo\b/, /\bfounder\b/, /\boprichter\b/, /managing director/, /algemeen directeur/, /\beigenaar\b/, /\bowner\b/],
   },
   {
     key: "finance_ops",
     label: "Finance ops",
-    patterns: ["accounting", "accountant", "finance operations", "financial administration", "financiële administratie", "administrateur", "boekhoud"],
+    patterns: [/\baccounting\b/, /\baccountant\b/, /finance operations/, /financial administration/, /financiële administratie/, /administrateur/, /\bboekhoud/],
   },
 ];
 
@@ -27,10 +27,13 @@ export const OTHER_KEY = "overig";
 export const OTHER_LABEL = "Overig";
 
 function matchText(text) {
-  const t = (text ?? "").toLowerCase();
+  let t = (text ?? "").toLowerCase();
   if (!t) return null;
+  // "Product owner" is een IC-rol, geen economic buyer — strip vóór het matchen
+  // zodat het \bowner\b-patroon er niet op aanslaat.
+  t = t.replace(/product owners?/g, " ");
   for (const p of PERSONAS) {
-    if (p.patterns.some((pat) => t.includes(pat))) return p.key;
+    if (p.patterns.some((re) => re.test(t))) return p.key;
   }
   return null;
 }

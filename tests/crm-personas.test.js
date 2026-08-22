@@ -17,6 +17,13 @@ describe("classifyPersona", () => {
     ["Accounting Manager", "finance_ops"],
     ["Hoofd Financiële Administratie", "finance_ops"],
     ["Boekhouder", "finance_ops"],
+    ["Product Owner", "overig"],
+    ["Marketing Coordinator", "overig"],
+    ["Operations Coordinator", "overig"],
+    ["VP of Finance", "finance_leadership"],
+    ["COO", "economic_buyer"],
+    ["Business Owner", "economic_buyer"],
+    ["Co-founder", "economic_buyer"],
   ])("classificeert %s als %s", (title, expected) => {
     expect(classifyPersona(title, null)).toBe(expected);
   });
