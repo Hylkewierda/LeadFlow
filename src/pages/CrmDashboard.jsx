@@ -4,12 +4,13 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Check, ChevronDown, ExternalLink, Inbox, Activity, TrendingUp, Trophy, UserPlus } from "lucide-react";
 import { useAuth } from "@/lib/AuthContext";
-import { useCrmContacts, useAddNote, useCreateContact, useScheduleFollowup } from "@/lib/crm/hooks";
+import { useCrmContacts, useAddNote, useCreateContact, useScheduleFollowup, useWarmAccounts } from "@/lib/crm/hooks";
 import { listHomeTopLeads } from "@/lib/topleads/data";
 import { combinedScore } from "@/lib/topleads/scoring";
 import { createPageUrl } from "@/utils";
 import ContactCard from "@/components/crm/ContactCard";
 import StageStepper from "@/components/crm/StageStepper";
+import WarmAccountCard from "@/components/crm/WarmAccountCard";
 import { daysSince, STAGE_META, PIPELINE_STAGES, isDue, isOverdue, addDaysISO } from "@/lib/crm/format";
 
 const EASE = [0.22, 1, 0.36, 1];
@@ -65,7 +66,17 @@ export default function CrmDashboard() {
   const addNote = useAddNote();
   const schedule = useScheduleFollowup();
 
+  const warmQ = useWarmAccounts();
+  const warmAccounts = warmQ.data ?? [];
+
   const open = (id) => navigate(`${createPageUrl("CrmContact")}?id=${id}`);
+
+  const openWarm = (a) =>
+    navigate(
+      a.in_crm
+        ? `${createPageUrl("CrmCompany")}?id=${a.company_id}`
+        : `${createPageUrl("CrmCompany")}?key=${encodeURIComponent(a.key)}`
+    );
 
   // A top lead leaves the intake bucket once a contact exists for that person.
   const contactUrls = new Set(contacts.map((c) => c.linkedin_url));
@@ -101,6 +112,17 @@ export default function CrmDashboard() {
           <h1 className="text-[26px] font-bold tracking-tight text-foreground">CRM</h1>
           <p className="text-muted-foreground text-[13px] mt-1">Volg je top leads op — met de scoring-context erbij.</p>
         </motion.div>
+
+        {warmAccounts.length > 0 && (
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.05, ease: EASE }} className="mb-5">
+            <h2 className="text-[13px] font-semibold text-foreground mb-2">Warme accounts</h2>
+            <div className="space-y-2">
+              {warmAccounts.map((a) => (
+                <WarmAccountCard key={a.key} account={a} onOpen={() => openWarm(a)} />
+              ))}
+            </div>
+          </motion.div>
+        )}
 
         {/* Health strip */}
         <div className="grid grid-cols-2 gap-2.5 mb-5">
