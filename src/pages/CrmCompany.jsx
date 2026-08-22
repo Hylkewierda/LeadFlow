@@ -1,9 +1,13 @@
 import { useSearchParams, useNavigate, Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ArrowLeft, ExternalLink, AlertTriangle } from "lucide-react";
-import { useCrmCompany } from "@/lib/crm/hooks";
+import { useCrmCompany, useWarmAccountDetail, useCreateCompany } from "@/lib/crm/hooks";
+import { normalizeCompanyName } from "@/lib/crm/companyMatch";
+import { OTHER_LABEL, PERSONAS } from "@/lib/crm/personas";
+import PersonaGapPanel from "@/components/crm/PersonaGapPanel";
+import SignalTimeline from "@/components/crm/SignalTimeline";
 import { createPageUrl } from "@/utils";
-import { roundScore, initials, stageMeta, relativeNL } from "@/lib/crm/format";
+import { roundScore, initials, stageMeta, relativeNL, scorePillClasses } from "@/lib/crm/format";
 
 const EASE = [0.22, 1, 0.36, 1];
 
@@ -22,10 +26,52 @@ function Stat({ label, value }) {
 export default function CrmCompany() {
   const [params] = useSearchParams();
   const id = params.get("id");
+  const previewKey = params.get("key");
   const navigate = useNavigate();
   const { data, isLoading, isError, error } = useCrmCompany(id);
+  const warmKey = previewKey ?? (data?.company?.name ? normalizeCompanyName(data.company.name) : null);
+  const warmQ = useWarmAccountDetail(warmKey);
+  const warm = warmQ.data ?? null;
+  const createCompany = useCreateCompany();
+  const personaLabel = (key) => PERSONAS.find((p) => p.key === key)?.label ?? OTHER_LABEL;
 
-  if (!id) return <Empty msg="Geen bedrijf geselecteerd." />;
+  if (!id && !previewKey) return <Empty msg="Geen bedrijf geselecteerd." />;
+
+  if (!id && previewKey) {
+    if (warmQ.isLoading) return <Empty msg="Laden…" />;
+    if (!warm) return <Empty msg="Account niet gevonden." />;
+    return (
+      <div className="flex flex-col items-center px-4 sm:px-6 pt-6 pb-8">
+        <div className="w-full max-w-lg">
+          <button onClick={() => navigate(-1)} className="inline-flex items-center gap-1.5 text-[13px] text-foreground/60 hover:text-foreground mb-4">
+            <ArrowLeft className="w-4 h-4" /> Terug
+          </button>
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, ease: EASE }} className="glass-card-elevated rounded-2xl p-4 mb-3">
+            <h1 className="text-[20px] font-bold tracking-tight text-foreground">{warm.name}</h1>
+            <p className="text-[12px] text-muted-foreground mt-0.5">Nog niet in CRM — gevonden via discovery-signalen.</p>
+            <button
+              disabled={createCompany.isPending}
+              onClick={() =>
+                createCompany.mutate(
+                  { name: warm.name },
+                  { onSuccess: (d) => navigate(`${createPageUrl("CrmCompany")}?id=${d.companyId}`, { replace: true }) }
+                )
+              }
+              className="mt-3 inline-flex items-center justify-center rounded-xl bg-emerald-600 text-white text-[13px] font-medium px-4 py-2 active:scale-[0.98] transition-transform disabled:opacity-50"
+            >
+              Voeg toe aan CRM
+            </button>
+          </motion.div>
+          <div className="space-y-3">
+            <PersonaGapPanel personas={warm.personas} />
+            <SignalTimeline timeline={warm.timeline} />
+            <PeopleList people={warm.people} personaLabel={personaLabel} />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (isLoading) return <Empty msg="Laden…" />;
   if (isError) return <Empty msg={error?.message || "Fout bij laden."} />;
 
@@ -110,6 +156,42 @@ export default function CrmCompany() {
             );
           })}
         </div>
+
+        {warm && (
+          <div className="space-y-3 mt-3">
+            <PersonaGapPanel personas={warm.personas} />
+            <SignalTimeline timeline={warm.timeline} />
+            <PeopleList people={warm.people} personaLabel={personaLabel} />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function PeopleList({ people, personaLabel }) {
+  if (!people?.length) return null;
+  return (
+    <div className="glass-card rounded-xl p-3">
+      <h3 className="text-[12px] font-semibold text-foreground mb-2">Gevonden personen</h3>
+      <div className="space-y-2">
+        {people.map((p) => (
+          <div key={p.linkedin_url} className="flex items-center gap-3">
+            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-foreground/[0.06] flex items-center justify-center text-[11px] font-semibold text-foreground/70">
+              {initials(p.name)}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[13px] font-medium text-foreground truncate">{p.name ?? "Onbekend"}</p>
+              <p className="text-[11px] text-muted-foreground truncate">{p.role || p.headline || "—"}</p>
+            </div>
+            <span className="text-[10px] font-medium text-foreground/50 flex-shrink-0">{personaLabel(p.persona)}</span>
+            {p.score != null && (
+              <span className={`text-[11px] font-semibold rounded-full px-2 py-0.5 flex-shrink-0 ${scorePillClasses(p.score)}`}>
+                {roundScore(p.score)}
+              </span>
+            )}
+          </div>
+        ))}
       </div>
     </div>
   );
