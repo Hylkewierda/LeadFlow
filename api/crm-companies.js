@@ -62,7 +62,12 @@ export default async function handler(req, res) {
           .from("candidates")
           .select("linkedin_url, linkedin_profile, signal_type, signal_context, signal_history, llm_score, status, created_at")
           .eq("workspace_id", wsId)
-          .not("linkedin_profile->>company", "is", null),
+          // Bedrijf zit per bron op een andere plek: plat (home-snapshots) of
+          // in currentPosition[0].companyName (lookalike-profielen). Filter op
+          // beide; de builder valideert daarna definitief.
+          .or(
+            "linkedin_profile->>company.not.is.null,linkedin_profile->currentPosition->0->>companyName.not.is.null"
+          ),
         supabase
           .from("home_top_leads")
           .select("linkedin_url, profile, signal_context, icp_score, scored_at")

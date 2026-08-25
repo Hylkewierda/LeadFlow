@@ -28,6 +28,7 @@ vi.mock("@supabase/supabase-js", () => ({
         select: () => chain,
         eq: () => chain,
         not: () => chain,
+        or: () => chain,
         order: () => chain,
         limit: () => Promise.resolve({ data: tableResult(table), error: null }),
         maybeSingle: () => Promise.resolve({ data: tableResult(table)[0] ?? null, error: null }),
