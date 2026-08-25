@@ -115,6 +115,19 @@ describe("lookalike-profielshape (currentPosition)", () => {
     const d = buildWarmAccountDetail({ candidates: [row], homeTopLeads: [], crmCompanies: [], now: NOW, key: "shopco" });
     expect(d.people[0].role).toBe("Financial Controller");
     expect(d.people[0].persona).toBe("controller");
+    expect(d.people[0].name).toBe("Loes");
+  });
+
+  it("valt terug op firstName/lastName als name ontbreekt", () => {
+    const row = cand({
+      linkedin_url: "u-fn",
+      linkedin_profile: {
+        firstName: "Piet", lastName: "Jansen",
+        currentPosition: [{ companyName: "ShopCo", position: "CFO" }],
+      },
+    });
+    const d = buildWarmAccountDetail({ candidates: [row], homeTopLeads: [], crmCompanies: [], now: NOW, key: "shopco" });
+    expect(d.people[0].name).toBe("Piet Jansen");
   });
 
   it("laat rijen zonder enige bedrijfsinfo nog steeds weg", () => {

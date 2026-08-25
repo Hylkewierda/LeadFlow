@@ -34,6 +34,12 @@ function profileCompany(p) {
   return cp?.companyName ?? cp?.company ?? null;
 }
 
+function profileName(p) {
+  if (p.name) return p.name;
+  const composed = [p.firstName, p.lastName].filter(Boolean).join(" ").trim();
+  return composed || null;
+}
+
 function profileRole(p) {
   if (p.role) return p.role;
   const cp = Array.isArray(p.currentPosition) ? p.currentPosition[0] : null;
@@ -67,7 +73,7 @@ function groupPeople(candidates, homeTopLeads) {
     if (!company) continue;
     upsert(company, {
       linkedin_url: row.linkedin_url,
-      name: p.name ?? null,
+      name: profileName(p),
       role: profileRole(p),
       headline: p.headline ?? null,
       score: row.llm_score != null ? Number(row.llm_score) : null,
@@ -82,7 +88,7 @@ function groupPeople(candidates, homeTopLeads) {
     if (!company) continue;
     upsert(company, {
       linkedin_url: row.linkedin_url,
-      name: p.name ?? null,
+      name: profileName(p),
       role: profileRole(p),
       headline: p.headline ?? null,
       score: row.icp_score != null ? Number(row.icp_score) : null,
