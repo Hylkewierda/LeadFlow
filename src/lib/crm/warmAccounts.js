@@ -23,6 +23,23 @@ function homeTopLeadEvent(row) {
 }
 
 // Bouwt de gegroepeerde personen-map: key → Map(linkedin_url → person).
+// De drie bronnen dragen bedrijfs-/rolinfo in verschillende shapes aan:
+// home_top_leads en oude snapshots als platte company/role-velden, de
+// lookalike-profielscraper als currentPosition[0].{companyName,position}.
+// Discovery-kandidaten (content/competitor) hebben geen werkgever-data —
+// die kunnen pas meedoen zodra de scraper dat veld levert.
+function profileCompany(p) {
+  if (p.company) return p.company;
+  const cp = Array.isArray(p.currentPosition) ? p.currentPosition[0] : null;
+  return cp?.companyName ?? cp?.company ?? null;
+}
+
+function profileRole(p) {
+  if (p.role) return p.role;
+  const cp = Array.isArray(p.currentPosition) ? p.currentPosition[0] : null;
+  return cp?.position ?? cp?.title ?? null;
+}
+
 function groupPeople(candidates, homeTopLeads) {
   const groups = new Map();
   const upsert = (companyName, person) => {
@@ -46,11 +63,12 @@ function groupPeople(candidates, homeTopLeads) {
 
   for (const row of candidates ?? []) {
     const p = row.linkedin_profile ?? {};
-    if (!p.company) continue;
-    upsert(p.company, {
+    const company = profileCompany(p);
+    if (!company) continue;
+    upsert(company, {
       linkedin_url: row.linkedin_url,
       name: p.name ?? null,
-      role: p.role ?? null,
+      role: profileRole(p),
       headline: p.headline ?? null,
       score: row.llm_score != null ? Number(row.llm_score) : null,
       status: row.status ?? "new",
@@ -60,11 +78,12 @@ function groupPeople(candidates, homeTopLeads) {
   }
   for (const row of homeTopLeads ?? []) {
     const p = row.profile ?? {};
-    if (!p.company) continue;
-    upsert(p.company, {
+    const company = profileCompany(p);
+    if (!company) continue;
+    upsert(company, {
       linkedin_url: row.linkedin_url,
       name: p.name ?? null,
-      role: p.role ?? null,
+      role: profileRole(p),
       headline: p.headline ?? null,
       score: row.icp_score != null ? Number(row.icp_score) : null,
       status: "new",

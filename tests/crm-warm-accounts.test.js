@@ -96,3 +96,32 @@ describe("buildWarmAccountDetail", () => {
     expect(buildWarmAccountDetail({ candidates: [cand()], homeTopLeads: [], crmCompanies: [], now: NOW, key: "bestaatniet" })).toBeNull();
   });
 });
+
+describe("lookalike-profielshape (currentPosition)", () => {
+  it("haalt bedrijf en rol uit currentPosition[0] als company/role ontbreken", () => {
+    const row = cand({
+      linkedin_url: "u-look",
+      signal_type: "lookalike",
+      linkedin_profile: {
+        name: "Loes",
+        headline: "Finance bij ShopCo",
+        currentPosition: [{ companyName: "ShopCo B.V.", position: "Financial Controller" }],
+      },
+      signal_history: [{ search_id: "s1", signal_type: "lookalike", at: daysAgo(2) }],
+    });
+    const out = buildWarmAccounts({ candidates: [row], homeTopLeads: [], crmCompanies: [], now: NOW });
+    expect(out).toHaveLength(1);
+    expect(out[0].key).toBe("shopco");
+    const d = buildWarmAccountDetail({ candidates: [row], homeTopLeads: [], crmCompanies: [], now: NOW, key: "shopco" });
+    expect(d.people[0].role).toBe("Financial Controller");
+    expect(d.people[0].persona).toBe("controller");
+  });
+
+  it("laat rijen zonder enige bedrijfsinfo nog steeds weg", () => {
+    const row = cand({
+      linkedin_url: "u-none",
+      linkedin_profile: { name: "X", role: "CFO", currentPosition: [] },
+    });
+    expect(buildWarmAccounts({ candidates: [row], homeTopLeads: [], crmCompanies: [], now: NOW })).toHaveLength(0);
+  });
+});
