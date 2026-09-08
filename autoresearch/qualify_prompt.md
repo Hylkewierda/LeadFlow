@@ -46,8 +46,8 @@ SCORING GEWICHTEN:
 leadScore = job_title*0.30 + industry*0.25 + company_scale*0.20 + geography*0.15 + pain_points*0.10
 
 KWALIFICATIE:
-- GO: leadScore >= 65 (isQualifiedLead = true)
-- MAYBE: leadScore 40-64 (isQualifiedLead = false)
+- GO: leadScore >= 55 (isQualifiedLead = true)
+- MAYBE: leadScore 40-54 (isQualifiedLead = false)
 - NO-GO: leadScore < 40 (isQualifiedLead = false)
 
 Geef ALLEEN dit JSON-object terug, zonder extra tekst of markdown:
