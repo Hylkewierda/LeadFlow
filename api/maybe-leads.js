@@ -10,7 +10,7 @@ function serverSupabase() {
 }
 
 const MAYBE_MIN = 40;
-const MAYBE_MAX = 65; // exclusive upper bound: [40, 65) === MAYBE 40-64
+const MAYBE_MAX = 55; // exclusive upper bound: [40, 55) === MAYBE 40-54 (GO >= 55)
 
 export default async function handler(req, res) {
   const supabase = serverSupabase();

@@ -65,7 +65,7 @@ export default function MaybeLeads() {
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, ease: EASE }} className="mb-6">
           <h1 className="text-[26px] font-bold tracking-tight text-foreground">Maybe Leads</h1>
           <p className="text-muted-foreground text-[13px] mt-1">
-            Leads met een score van 40–64 die je handmatig beoordeelt. Je oordeel traint de qualifier voor de volgende run.
+            Leads met een score van 40–54 die je handmatig beoordeelt. Je oordeel traint de qualifier voor de volgende run.
           </p>
         </motion.div>
 
@@ -162,7 +162,7 @@ export default function MaybeLeads() {
         )}
 
         <MoreInfo label="Hoe werkt dit?">
-          <p>Elke lead krijgt een AI-score. <strong>40–64</strong> = MAYBE en komt hier terecht. Jouw GO/NO-GO bevestigt de lead én wordt als voorbeeld meegegeven aan de qualifier, zodat de eerste pass van de volgende run beter scoort. Bevestigde oordelen beheer je onder "Bevestigd"; pin de belangrijkste zodat ze nooit worden opgeschoond.</p>
+          <p>Elke lead krijgt een AI-score. <strong>40–54</strong> = MAYBE en komt hier terecht. Jouw GO/NO-GO bevestigt de lead én wordt als voorbeeld meegegeven aan de qualifier, zodat de eerste pass van de volgende run beter scoort. Bevestigde oordelen beheer je onder "Bevestigd"; pin de belangrijkste zodat ze nooit worden opgeschoond.</p>
         </MoreInfo>
       </div>
     </div>

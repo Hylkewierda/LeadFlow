@@ -4,7 +4,7 @@
 export function scorePillClasses(score) {
   if (score == null) return "bg-slate-100 text-slate-500";
   const s = Math.round(Number(score));
-  if (s >= 65) return "bg-emerald-100 text-emerald-700";
+  if (s >= 55) return "bg-emerald-100 text-emerald-700";
   if (s >= 40) return "bg-amber-100 text-amber-700";
   return "bg-rose-100 text-rose-700";
 }

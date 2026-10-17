@@ -31,8 +31,8 @@ export function CandidateCard({ candidate, onQualify, onDisqualify, onReset, onA
   const [addedToCrm, setAddedToCrm] = useState(false);
   const p = candidate.linkedin_profile;
 
-  // Strong leads (llm_score >= 65) get a one-click "add to CRM" action (instroom #2).
-  const isStrong = typeof candidate.llm_score === "number" && candidate.llm_score >= 65;
+  // Strong leads (llm_score >= 55, the GO threshold) get a one-click "add to CRM" action (instroom #2).
+  const isStrong = typeof candidate.llm_score === "number" && candidate.llm_score >= 55;
 
   async function handle(fn) {
     setBusy(true);

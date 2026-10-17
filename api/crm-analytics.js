@@ -15,14 +15,14 @@ function serverSupabase() {
 
 const SOURCE_LABELS = { candidate: "Candidate", home_top_lead: "Top lead", manual: "Handmatig" };
 const SIGNAL_LABELS = { content: "Content", competitor_engagement: "Concurrent", combined: "Gecombineerd", lookalike: "Lookalike", onbekend: "Onbekend" };
-const SCORE_BAND_LABEL = { hoog: "65+", midden: "40–64", laag: "<40", onbekend: "Onbekend" };
+const SCORE_BAND_LABEL = { hoog: "55+", midden: "40–54", laag: "<40", onbekend: "Onbekend" };
 const SCORE_BAND_ORDER = ["hoog", "midden", "laag", "onbekend"];
 const REASON_LABELS = Object.fromEntries(DISQUALIFY_REASONS.map((r) => [r.value, r.label]));
 
 function scoreBandKey(score) {
   if (score == null) return "onbekend";
   const s = Number(score);
-  if (s >= 65) return "hoog";
+  if (s >= 55) return "hoog";
   if (s >= 40) return "midden";
   return "laag";
 }

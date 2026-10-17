@@ -65,7 +65,7 @@ describe("GET /api/crm-analytics", () => {
     expect(res.body.totals).toEqual({ won: 2, lost: 2, open: 1, closed: 4, winRate: 50 });
 
     const band = Object.fromEntries(res.body.byDimension.scoreBand.map((r) => [r.key, r]));
-    expect(band.hoog).toMatchObject({ label: "65+", won: 2, lost: 1, open: 0, winRate: 67 });
+    expect(band.hoog).toMatchObject({ label: "55+", won: 2, lost: 1, open: 0, winRate: 67 });
     expect(band.midden).toMatchObject({ won: 0, lost: 1, open: 0, winRate: 0 });
     expect(band.onbekend).toMatchObject({ won: 0, lost: 0, open: 1, winRate: null });
 

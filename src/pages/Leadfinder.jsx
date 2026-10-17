@@ -115,7 +115,7 @@ export default function Leadfinder() {
     const updated = await resetCandidate(id);
     setCandidates((prev) => prev.map((c) => (c.id === id ? updated : c)));
   }
-  // Instroom #2: add a strong (65+) candidate to the CRM. Server-side the company
+  // Instroom #2: add a strong (55+) candidate to the CRM. Server-side the company
   // is upserted + linked; the call is idempotent on (workspace, linkedin_url).
   async function handleAddToCrm(candidate) {
     const r = await fetch("/api/crm-contacts?workspace=actuals", {
