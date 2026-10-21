@@ -36,12 +36,15 @@ Current pages: `Home`, `Leadfinder`, `LookalikeSearch`, `InteractionsReasoning`,
 
 ### State Management
 
-- **AuthContext** (`src/lib/AuthContext.jsx`) — email/password auth. Allowed users come from the `VITE_AUTH_USERS` env var (JSON array); session is persisted in `localStorage` under `leadflow_auth`.
+- **AuthContext** (`src/lib/AuthContext.jsx`) — server-side session. Login POSTs to `api/session.js`, which checks `AUTH_USERS` (server env, JSON array) and sets a signed HttpOnly cookie (`leadflow_session`, HMAC with `AUTH_SECRET`, 7 days). On load the app asks `GET /api/session` who is logged in.
 - **WorkflowContext** (`src/components/WorkflowContext.jsx`) — tracks the active workflow by `runId`, polls `/api/workflows?run_id=<id>` every 10s (Supabase `workflow_runs`), persists state in `localStorage`, and toasts completion counts. Exposes `cancelWorkflow()` (fires `DELETE /api/workflows` and keeps polling) and a `cancelling` flag; the poll ends the run with a neutral "geannuleerd" toast when status flips to `cancelled` (see Cancellation below).
 - **TanStack Query** — configured in `src/lib/query-client.js`.
 - **localStorage keys** — daily workflow limits (`limiter_{mode}_{date}`), auth session, workflow state.
 
 ### Serverless API
+
+**Auth:** every route in `api/` is wrapped in `withAuth` (`api/_lib/auth.js`) and returns 401 without a valid session cookie; only `api/session.js` (login/logout/status) is open. `tests/api-auth-guard.test.js` enforces this for every file in `api/`. The browser never talks to Supabase directly: all reads/writes go through these routes with the service-role key, and RLS is on for the tables. Vercel Hobby allows **12 functions** per deployment and `api/` is at 12: add a `view`/`action` to an existing route instead of a new file (`_lib/` does not count).
+
 
 `api/workflows.js` is a Vercel serverless function and the entry point for the 4 Home workflow modes. `POST { mode }` guards (per-mode already-running + 5/day), inserts a `workflow_runs` row, dispatches `Hylkewierda/lead-discovery-service/.github/workflows/run-workflow.yml` with `{ mode, run_id }`, and returns `{ runId }`. `GET ?run_id=<id>` returns the run's status/counts for polling. `DELETE ?run_id=<id>` requests cancellation (see Cancellation below). Requires `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `GITHUB_PAT`.
 
@@ -82,7 +85,7 @@ All three GitHub-Actions dispatch paths support **cooperative cancellation** —
 
 How it works: the DELETE sets `cancel_requested=true` on the row (only when non-terminal; idempotent no-op otherwise, returning the current status). The CLI polls that flag (throttled) at stage checkpoints and inside its Apify poll loop, aborts the in-flight Apify actor run, stops further LLM calls, writes `status='cancelled'` (+ `cancelled_at`), and **exits 0** so the workflow's `if: failure()` step does not overwrite it. The CLI-side mechanism lives in the `lead-discovery-service` repo (`src/workflows/cancellation.ts` + per-pipeline wiring) — see `Lead_finder/CLAUDE.md`.
 
-UI observation: Home polls `/api/workflows` (10s); Leadfinder and Lookalike read status directly from Supabase (anon, 3s). Each shows a destructive cancel control only while the run is non-terminal, toggles it to "Annuleren…" (disabled) after click, and renders a neutral `cancelled`/"Geannuleerd" state once the poll observes it. The Lookalike Sheet-export latch fires only on `completed`, never on `cancelled`. The `runs.cancel_requested`/`cancelled_at`/`cancelled` status, `lookalike_searches.cancel_requested`/`cancelled_at`, and `workflow_runs` cancel columns were added by migrations `013`/`014`/`015` (`014` also widened the `runs.status` CHECK to allow `cancelled`).
+UI observation: Home polls `/api/workflows` (10s); Leadfinder polls `/api/runs?view=recent` and Lookalike polls `/api/lookalike-searches?search_id=` (3s). Each shows a destructive cancel control only while the run is non-terminal, toggles it to "Annuleren…" (disabled) after click, and renders a neutral `cancelled`/"Geannuleerd" state once the poll observes it. The Lookalike Sheet-export latch fires only on `completed`, never on `cancelled`. The `runs.cancel_requested`/`cancelled_at`/`cancelled` status, `lookalike_searches.cancel_requested`/`cancelled_at`, and `workflow_runs` cancel columns were added by migrations `013`/`014`/`015` (`014` also widened the `runs.status` CHECK to allow `cancelled`).
 
 ### MaybeLeads (in-app triage)
 
@@ -119,6 +122,6 @@ Deployed to Vercel via GitHub (origin: `Hylkewierda/LeadFlow`). Push to `main` t
 
 ## Environment Variables
 
-- **Frontend (Vite):** `VITE_AUTH_USERS`
-- **Vercel runtime:** `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `GITHUB_PAT` (used by `api/workflows.js` and `api/runs.js`). The `UPSTASH_REDIS_REST_URL`/`UPSTASH_REDIS_REST_TOKEN`/`WORKFLOW_API_KEY` vars are now orphaned after the n8n status-callback retirement and can be removed from Vercel.
+- **Frontend (Vite):** none. Never put secrets in `VITE_*`: they end up in the public bundle (that is how the old `VITE_AUTH_USERS` passwords and the Supabase anon key leaked, 2026-10-21).
+- **Vercel runtime:** `AUTH_USERS`, `AUTH_SECRET`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `GITHUB_PAT` (used by `api/workflows.js` and `api/runs.js`). The `UPSTASH_REDIS_REST_URL`/`UPSTASH_REDIS_REST_TOKEN`/`WORKFLOW_API_KEY` vars are now orphaned after the n8n status-callback retirement and can be removed from Vercel.
 - **Autoresearch:** `HUBSPOT_API_KEY`, `GROQ_API_KEY`, `GROQ_MODEL`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (required by `evaluate.py` to read human verdicts from `qualifier_exemplars`)

@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { withAuth } from "./_lib/auth.js";
 
 function serverSupabase() {
   const url = process.env.SUPABASE_URL;
@@ -11,8 +12,41 @@ function serverSupabase() {
   });
 }
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   const supabase = serverSupabase();
+
+  // GET ?view=recent&limit=5            — latest discovery runs for the workspace
+  // GET ?view=post-analyses&run_id=<id> — post analyses of one run
+  if (req.method === "GET") {
+    const view = req.query?.view;
+    if (view === "recent") {
+      const slug = (req.query?.workspace || "actuals").trim();
+      const limit = Math.min(Math.max(parseInt(req.query?.limit, 10) || 5, 1), 50);
+      const ws = await supabase.from("workspaces").select("id").eq("slug", slug).maybeSingle();
+      if (ws.error) return res.status(500).json({ error: ws.error.message });
+      if (!ws.data) return res.status(404).json({ error: `Workspace "${slug}" not found` });
+      const { data, error } = await supabase
+        .from("runs")
+        .select("*")
+        .eq("workspace_id", ws.data.id)
+        .order("started_at", { ascending: false })
+        .limit(limit);
+      if (error) return res.status(500).json({ error: error.message });
+      return res.status(200).json({ runs: data ?? [] });
+    }
+    if (view === "post-analyses") {
+      const runId = req.query?.run_id;
+      if (!runId) return res.status(400).json({ error: "Missing run_id" });
+      const { data, error } = await supabase
+        .from("post_analyses")
+        .select("*")
+        .eq("run_id", runId)
+        .order("created_at", { ascending: true });
+      if (error) return res.status(500).json({ error: error.message });
+      return res.status(200).json({ analyses: data ?? [] });
+    }
+    return res.status(400).json({ error: "view must be recent or post-analyses" });
+  }
 
   // DELETE ?run_id=<id> — request cancellation of a running discovery run.
   if (req.method === "DELETE") {
@@ -126,3 +160,5 @@ export default async function handler(req, res) {
 
   return res.status(200).json({ runId: inserted.data.id });
 }
+
+export default withAuth(handler);

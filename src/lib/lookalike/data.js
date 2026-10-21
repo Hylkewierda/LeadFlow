@@ -1,4 +1,4 @@
-import { browserSupabase } from "../leadfinder/supabase.js";
+import { getJSON } from "../api.js";
 
 /** Submit a new lookalike search. Returns the inserted searchId. */
 export async function startLookalikeSearch({ urls, name, feedback }) {
@@ -23,16 +23,8 @@ export async function startLookalikeSearch({ urls, name, feedback }) {
 
 /** Fetch one lookalike search by id. Returns null if not found. */
 export async function getLookalikeSearch(id) {
-  const supabase = browserSupabase();
-  const { data, error } = await supabase
-    .from("lookalike_searches")
-    .select(
-      "id, name, source_urls, feedback, status, playbook, candidates_found, candidates_qualified, error, created_at, completed_at",
-    )
-    .eq("id", id)
-    .maybeSingle();
-  if (error) throw new Error(`Lookup failed: ${error.message}`);
-  return data;
+  const { search } = await getJSON(`/api/lookalike-searches?search_id=${encodeURIComponent(id)}`);
+  return search ?? null;
 }
 
 /** Cancel a non-terminal lookalike search. Flags it for cancellation; the running CLI self-cancels and the row flips to status='cancelled'. */

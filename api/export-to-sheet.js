@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { withAuth } from "./_lib/auth.js";
 
 const SELECT_COLS =
   "id, linkedin_url, linkedin_profile, pre_score, signal_type, signal_context, status, exported_to_sheet_at, llm_score, llm_reasoning, llm_qualified_at";
@@ -67,7 +68,7 @@ export function buildRow(candidate) {
   };
 }
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -136,3 +137,5 @@ export default async function handler(req, res) {
 
   return res.status(200).json({ exported: exportedIds.length, failed });
 }
+
+export default withAuth(handler);

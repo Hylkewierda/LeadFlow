@@ -18,7 +18,7 @@ vi.mock("@supabase/supabase-js", () => ({
 
 function makeReqRes(method, { query } = {}) {
   const res = { statusCode: 200, body: null, status(c) { this.statusCode = c; return this; }, json(p) { this.body = p; return this; } };
-  return [{ method, query: query ?? {} }, res];
+  return [{ method, query: { action: "analytics", ...(query ?? {}) } }, res];
 }
 
 let handler;
@@ -28,7 +28,7 @@ beforeEach(async () => {
   state.contactsError = null;
   process.env.SUPABASE_URL = "https://test.supabase.co";
   process.env.SUPABASE_SERVICE_ROLE_KEY = "service-key";
-  handler = (await import("../api/crm-analytics.js")).default;
+  handler = (await import("../api/crm-companies.js")).default;
 });
 
 const SAMPLE = [
@@ -39,7 +39,7 @@ const SAMPLE = [
   { stage: "gewonnen", source: "home_top_lead", source_score: 90, owner: "b@x", disqualify_reason: null, candidate_id: "c5", candidates: { signal_type: "lookalike" } },
 ];
 
-describe("GET /api/crm-analytics", () => {
+describe("GET /api/crm-companies?action=analytics", () => {
   it("404s on unknown workspace", async () => {
     const [req, res] = makeReqRes("GET", { query: { workspace: "nope" } });
     await handler(req, res);

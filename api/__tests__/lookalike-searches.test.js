@@ -39,7 +39,7 @@ beforeEach(() => {
 describe("POST /api/lookalike-searches", () => {
   it("returns 405 on non-POST", async () => {
     const res = makeRes();
-    await handler({ method: "GET" }, res);
+    await handler({ method: "PUT" }, res);
     expect(res.statusCode).toBe(405);
   });
 

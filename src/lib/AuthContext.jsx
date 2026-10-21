@@ -2,7 +2,9 @@ import React, { createContext, useState, useContext, useEffect } from 'react';
 
 const AuthContext = createContext();
 
-const AUTH_STORAGE_KEY = 'leadflow_auth';
+// Server-side session (api/session.js): the server checks the password and
+// sets an HttpOnly cookie; the browser only learns who is logged in.
+const LEGACY_STORAGE_KEY = 'leadflow_auth';
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -10,47 +12,50 @@ export const AuthProvider = ({ children }) => {
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
 
   useEffect(() => {
-    // Check if user has an existing session
-    const stored = localStorage.getItem(AUTH_STORAGE_KEY);
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        setUser(parsed);
+    // The old client-only login kept a session in localStorage; it means nothing now.
+    try { localStorage.removeItem(LEGACY_STORAGE_KEY); } catch { /* ignore */ }
+
+    let cancelled = false;
+    fetch('/api/session')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((body) => {
+        if (cancelled || !body?.user) return;
+        setUser(body.user);
         setIsAuthenticated(true);
-      } catch {
-        localStorage.removeItem(AUTH_STORAGE_KEY);
-      }
-    }
-    setIsLoadingAuth(false);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setIsLoadingAuth(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  const login = (email, password) => {
-    let validUsers = [];
+  const login = async (email, password) => {
     try {
-      validUsers = JSON.parse(import.meta.env.VITE_AUTH_USERS || '[]');
-    } catch {
-      validUsers = [];
-    }
-
-    const matchedUser = validUsers.find(
-      (u) => u.email === email && u.password === password
-    );
-
-    if (matchedUser) {
-      const userData = { email: matchedUser.email };
-      setUser(userData);
+      const res = await fetch('/api/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        return { success: false, error: res.status === 401 ? 'Ongeldige inloggegevens' : body.error || 'Inloggen mislukt' };
+      }
+      const body = await res.json();
+      setUser(body.user);
       setIsAuthenticated(true);
-      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(userData));
       return { success: true };
+    } catch {
+      return { success: false, error: 'Geen verbinding met de server' };
     }
-
-    return { success: false, error: 'Ongeldige inloggegevens' };
   };
 
-  const logout = () => {
+  const logout = async () => {
+    await fetch('/api/session', { method: 'DELETE' }).catch(() => {});
     setUser(null);
     setIsAuthenticated(false);
-    localStorage.removeItem(AUTH_STORAGE_KEY);
   };
 
   return (

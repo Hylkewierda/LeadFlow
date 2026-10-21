@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { withAuth } from "./_lib/auth.js";
 
 const VALID_MODES = ["all-posts", "specific-posts", "campaigns", "comment-posts", "stub"];
 const DAILY_LIMIT = 5;
@@ -11,7 +12,7 @@ function serverSupabase() {
   return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
 }
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   const supabase = serverSupabase();
 
   // GET ?run_id=<id> — status polling
@@ -136,3 +137,5 @@ export default async function handler(req, res) {
 
   return res.status(200).json({ runId: inserted.data.id });
 }
+
+export default withAuth(handler);

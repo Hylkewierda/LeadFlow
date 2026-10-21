@@ -113,7 +113,7 @@ beforeEach(async () => {
 
 describe("POST /api/runs", () => {
   it("returns 405 for non-POST", async () => {
-    const [req, res] = makeReqRes("GET", {});
+    const [req, res] = makeReqRes("PUT", {});
     await handler(req, res);
     expect(res.statusCode).toBe(405);
   });

@@ -3,6 +3,7 @@ import { normalizeDedupKey } from "../src/lib/dedupKey.js";
 import { resolveWorkspaceId, upsertCompany } from "../src/lib/crm/companyMatch.js";
 import { fetchKbText } from "../src/lib/kb/readKb.js";
 import { buildOutreachPrompt } from "../src/lib/crm/outreachPrompt.js";
+import { withAuth } from "./_lib/auth.js";
 
 const OUTREACH_MODEL = process.env.ANTHROPIC_OUTREACH_MODEL || "claude-sonnet-4-6";
 
@@ -30,7 +31,7 @@ const DISQUALIFY_REASONS = [
 const CONTACT_COLS =
   "id, workspace_id, candidate_id, company_id, linkedin_url, full_name, headline, role, location, source, source_score, stage, owner, disqualify_reason, last_activity_at, next_action_at, created_at, updated_at";
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   const supabase = serverSupabase();
 
   try {
@@ -400,3 +401,5 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: err.message });
   }
 }
+
+export default withAuth(handler);

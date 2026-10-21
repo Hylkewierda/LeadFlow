@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { withAuth } from "./_lib/auth.js";
 
 function serverSupabase() {
   const url = process.env.SUPABASE_URL;
@@ -91,7 +92,7 @@ async function distilPatterns(rows) {
     .map((p) => ({ verdict: p.verdict, pattern: p.pattern.trim() }));
 }
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   const supabase = serverSupabase();
 
   if (req.method === "GET") {
@@ -191,3 +192,5 @@ export default async function handler(req, res) {
 
   return res.status(405).json({ error: "Method not allowed" });
 }
+
+export default withAuth(handler);

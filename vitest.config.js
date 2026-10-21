@@ -6,6 +6,7 @@ export default defineConfig({
     include: ["tests/**/*.test.js", "src/**/*.test.js", "api/**/*.test.js"],
     environment: "node",
     globals: false,
+    setupFiles: ["tests/setup-auth.js"],
   },
   resolve: {
     alias: {

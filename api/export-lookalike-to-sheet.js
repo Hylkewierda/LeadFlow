@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { disqualifierFlag, formatReasoning } from "./export-to-sheet.js";
+import { withAuth } from "./_lib/auth.js";
 
 // Columns needed to build a lookalike-search row. `lookalike_sim` (candidates.lookalike_sim)
 // and `lookalike_search_id` (FK → lookalike_searches.id) come from migration 008.
@@ -54,7 +55,7 @@ export function buildLookalikeRow(candidate, searchNameById) {
   };
 }
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -141,3 +142,5 @@ export default async function handler(req, res) {
 
   return res.status(200).json({ exported: exportedIds.length, failed });
 }
+
+export default withAuth(handler);

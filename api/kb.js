@@ -1,3 +1,5 @@
+import { withAuth } from "./_lib/auth.js";
+
 // GitHub-backed Knowledge Base endpoints for the KnowledgeBase page.
 // The KB is canonically the kb/actuals/ folder of the lead-discovery-service
 // repo on main: every cloud run checks that repo out fresh, so a commit here
@@ -43,7 +45,7 @@ async function commitFile({ pat, path, content, sha, message }) {
   return fetch(contentsUrl(path), { method: "PUT", headers: ghHeaders(pat), body: JSON.stringify(body) });
 }
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   try {
     return await handle(req, res);
   } catch {
@@ -150,3 +152,5 @@ async function handle(req, res) {
 
   return res.status(405).json({ error: "Method not allowed" });
 }
+
+export default withAuth(handler);

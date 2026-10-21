@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { withAuth } from "./_lib/auth.js";
 
 function serverSupabase() {
   const url = process.env.SUPABASE_URL;
@@ -19,12 +20,28 @@ function normalizeUrls(urls) {
     .filter((u) => /linkedin\.com\/in\//i.test(u));
 }
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "POST, DELETE, OPTIONS");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
   if (req.method === "OPTIONS") return res.status(204).end();
+
+  // GET ?search_id=<id> — one search row for the page's status poll.
+  if (req.method === "GET") {
+    const searchId = req.query?.search_id;
+    if (!searchId) return res.status(400).json({ error: "Missing search_id" });
+    const supabase = serverSupabase();
+    const { data, error } = await supabase
+      .from("lookalike_searches")
+      .select(
+        "id, name, source_urls, feedback, status, playbook, candidates_found, candidates_qualified, error, created_at, completed_at",
+      )
+      .eq("id", searchId)
+      .maybeSingle();
+    if (error) return res.status(500).json({ error: error.message });
+    return res.status(200).json({ search: data ?? null });
+  }
 
   if (req.method === "DELETE") {
     const searchId = req.query?.search_id;
@@ -139,3 +156,5 @@ export default async function handler(req, res) {
 
   return res.status(200).json({ searchId: inserted.data.id });
 }
+
+export default withAuth(handler);

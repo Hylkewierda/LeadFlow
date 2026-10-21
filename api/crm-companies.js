@@ -1,6 +1,8 @@
 import { createClient } from "@supabase/supabase-js";
 import { resolveWorkspaceId, furthestStageLabel, upsertCompany } from "../src/lib/crm/companyMatch.js";
 import { buildWarmAccounts, buildWarmAccountDetail } from "../src/lib/crm/warmAccounts.js";
+import { handleAnalytics } from "./_lib/crm-analytics.js";
+import { withAuth } from "./_lib/auth.js";
 
 // CRM companies route — list (with derived rollup) and get-by-id (rollup + contacts).
 // Read-only in v1. Workspace-scoped. Design: crm/leadflow-crm-design.md §7.
@@ -35,7 +37,8 @@ async function fetchRollups(supabase, companyIds) {
   return map;
 }
 
-export default async function handler(req, res) {
+async function handler(req, res) {
+  if (req.query?.action === "analytics") return handleAnalytics(req, res);
   const supabase = serverSupabase();
 
   try {
@@ -145,3 +148,5 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: err.message });
   }
 }
+
+export default withAuth(handler);

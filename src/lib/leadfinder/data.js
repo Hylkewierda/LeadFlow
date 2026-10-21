@@ -1,77 +1,24 @@
-import { browserSupabase } from "./supabase.js";
+import { getJSON, sendJSON } from "../api.js";
 
+// All reads/writes go through the API routes (service-role key server-side,
+// session cookie required). The browser no longer talks to Supabase.
 const WORKSPACE_SLUG = "actuals";
-let workspaceIdCache = null;
-
-// Explicit column list for the candidate list. We must NOT `select("*")` here:
-// the `embedding` column is a 1536-dim pgvector, and pulling it for up to 1000
-// rows per page (2000+ candidates) makes PostgREST 500 on payload size/timeout.
-// These are every column the UI needs minus `embedding`/`embedded_at`.
-const CANDIDATE_LIST_COLUMNS =
-  "id,linkedin_url,linkedin_profile,signal_type,signal_context,signal_history,pre_score,status,first_run_id,last_run_id,created_at,updated_at,workspace_id,disqualify_reason,disqualify_note,qualified_by,hubspot_contact_id,pushed_to_hubspot_at,pushed_by,exported_to_sheet_at,llm_score,llm_reasoning,llm_qualified_at,lookalike_search_id,lookalike_sim";
-
-async function getWorkspaceId() {
-  if (workspaceIdCache) return workspaceIdCache;
-  const supabase = browserSupabase();
-  const { data, error } = await supabase
-    .from("workspaces")
-    .select("id")
-    .eq("slug", WORKSPACE_SLUG)
-    .single();
-  if (error) throw new Error(`Workspace lookup failed: ${error.message}`);
-  workspaceIdCache = data.id;
-  return workspaceIdCache;
-}
 
 export async function listCandidates({ statuses, search } = {}) {
-  const supabase = browserSupabase();
-  const workspaceId = await getWorkspaceId();
+  const params = new URLSearchParams({ view: "list", workspace: WORKSPACE_SLUG });
+  if (statuses && statuses.length > 0) params.set("statuses", statuses.join(","));
+  if (search && search.trim()) params.set("search", search.trim());
+  const { candidates } = await getJSON(`/api/maybe-leads?${params}`);
+  return candidates ?? [];
+}
 
-  // PostgREST returns max 1000 rows per request; paginate via .range().
-  const PAGE_SIZE = 1000;
-  const rows = [];
-  let from = 0;
-  while (true) {
-    let query = supabase
-      .from("candidates")
-      .select(CANDIDATE_LIST_COLUMNS)
-      .eq("workspace_id", workspaceId);
-    if (statuses && statuses.length > 0) {
-      query = query.in("status", statuses);
-    }
-    if (search && search.trim()) {
-      const needle = `%${search.trim()}%`;
-      query = query.or(
-        `linkedin_profile->>name.ilike.${needle},linkedin_profile->>role.ilike.${needle},linkedin_profile->>headline.ilike.${needle},linkedin_profile->>company.ilike.${needle}`,
-      );
-    }
-    const { data, error } = await query
-      .order("pre_score", { ascending: false })
-      .range(from, from + PAGE_SIZE - 1);
-    if (error) throw new Error(error.message);
-    const batch = data ?? [];
-    rows.push(...batch);
-    if (batch.length < PAGE_SIZE) break;
-    from += PAGE_SIZE;
-  }
-  return rows;
+async function patchCandidate(id, body) {
+  const { candidate } = await sendJSON(`/api/maybe-leads?id=${encodeURIComponent(id)}`, "PATCH", body);
+  return candidate;
 }
 
 export async function qualifyCandidate(id) {
-  const supabase = browserSupabase();
-  const { data, error } = await supabase
-    .from("candidates")
-    .update({
-      status: "qualified",
-      disqualify_reason: null,
-      disqualify_note: null,
-      qualified_by: "leadflow-user",
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", id)
-    .select()
-    .single();
-  if (error) throw new Error(error.message);
+  const data = await patchCandidate(id, { action: "qualify" });
 
   // Fire-and-forget: append the now-qualified lead to the overview Google Sheet.
   // The export must never break the qualify action, so failures are logged, not thrown.
@@ -95,52 +42,16 @@ async function exportQualifiedToSheet(candidateIds) {
 }
 
 export async function disqualifyCandidate(id, reason, note) {
-  const supabase = browserSupabase();
-  const { data, error } = await supabase
-    .from("candidates")
-    .update({
-      status: "disqualified",
-      disqualify_reason: reason,
-      disqualify_note: note?.trim() || null,
-      qualified_by: "leadflow-user",
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", id)
-    .select()
-    .single();
-  if (error) throw new Error(error.message);
-  return data;
+  return patchCandidate(id, { action: "disqualify", reason, note });
 }
 
 export async function resetCandidate(id) {
-  const supabase = browserSupabase();
-  const { data, error } = await supabase
-    .from("candidates")
-    .update({
-      status: "new",
-      disqualify_reason: null,
-      disqualify_note: null,
-      qualified_by: null,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", id)
-    .select()
-    .single();
-  if (error) throw new Error(error.message);
-  return data;
+  return patchCandidate(id, { action: "reset" });
 }
 
 export async function listRecentRuns(limit = 5) {
-  const supabase = browserSupabase();
-  const workspaceId = await getWorkspaceId();
-  const { data, error } = await supabase
-    .from("runs")
-    .select("*")
-    .eq("workspace_id", workspaceId)
-    .order("started_at", { ascending: false })
-    .limit(limit);
-  if (error) throw new Error(error.message);
-  return data ?? [];
+  const { runs } = await getJSON(`/api/runs?view=recent&workspace=${WORKSPACE_SLUG}&limit=${limit}`);
+  return runs ?? [];
 }
 
 export async function startRun(manualPosts = []) {
@@ -163,33 +74,15 @@ export async function cancelRun(runId) {
 }
 
 export async function getScopeSteering() {
-  const supabase = browserSupabase();
-  const { data, error } = await supabase
-    .from("workspaces")
-    .select("scope_steering")
-    .eq("slug", WORKSPACE_SLUG)
-    .single();
-  if (error) throw new Error(error.message);
-  return data?.scope_steering ?? "";
+  const settings = await getJSON(`/api/workspace?view=settings&workspace=${WORKSPACE_SLUG}`);
+  return settings.scope_steering ?? "";
 }
 
 export async function saveScopeSteering(text) {
-  const supabase = browserSupabase();
-  const workspaceId = await getWorkspaceId();
-  const { error } = await supabase
-    .from("workspaces")
-    .update({ scope_steering: text.trim() ? text.trim().slice(0, 1500) : null })
-    .eq("id", workspaceId);
-  if (error) throw new Error(error.message);
+  await sendJSON("/api/workspace", "PUT", { field: "scope_steering", value: text, workspaceSlug: WORKSPACE_SLUG });
 }
 
 export async function listPostAnalyses(runId) {
-  const supabase = browserSupabase();
-  const { data, error } = await supabase
-    .from("post_analyses")
-    .select("*")
-    .eq("run_id", runId)
-    .order("created_at", { ascending: true });
-  if (error) throw new Error(error.message);
-  return data ?? [];
+  const { analyses } = await getJSON(`/api/runs?view=post-analyses&run_id=${encodeURIComponent(runId)}`);
+  return analyses ?? [];
 }

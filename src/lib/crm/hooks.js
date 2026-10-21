@@ -67,7 +67,7 @@ export function useCrmCompany(id) {
 export function useCrmAnalytics() {
   return useQuery({
     queryKey: ["crm-analytics"],
-    queryFn: () => getJSON(`/api/crm-analytics?workspace=${WORKSPACE}`),
+    queryFn: () => getJSON(`/api/crm-companies?workspace=${WORKSPACE}&action=analytics`),
   });
 }
 

@@ -1,8 +1,10 @@
 import { createClient } from "@supabase/supabase-js";
-import { resolveWorkspaceId } from "../src/lib/crm/companyMatch.js";
-import { DISQUALIFY_REASONS } from "../src/lib/crm/format.js";
+import { resolveWorkspaceId } from "../../src/lib/crm/companyMatch.js";
+import { DISQUALIFY_REASONS } from "../../src/lib/crm/format.js";
 
-// CRM win/loss analytics — read-only, workspace-scoped, service-role. Aggregates
+// CRM win/loss analytics — read-only, workspace-scoped, service-role. Served by
+// api/crm-companies.js?action=analytics (folded in to stay under Vercel Hobby's
+// 12-function limit). Aggregates
 // crm_contacts (with the candidate's signal_type embedded) in JS and returns one
 // JSON document. Design: docs/superpowers/specs/2026-06-24-crm-winloss-analytics-design.md.
 
@@ -50,7 +52,7 @@ function tally(rows, keyFn, labelFn, order) {
   return arr;
 }
 
-export default async function handler(req, res) {
+export async function handleAnalytics(req, res) {
   const supabase = serverSupabase();
   try {
     if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
