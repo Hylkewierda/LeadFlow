@@ -20,23 +20,50 @@ beforeEach(() => {
 const ops = (q, name) => q.ops.filter((o) => o[0] === name);
 
 describe("GET /api/maybe-leads?view=list", () => {
-  it("pages through all candidates of the workspace, filtered by status", async () => {
-    const page1 = Array.from({ length: 1000 }, (_, i) => ({ id: `c${i}` }));
-    let candidateCalls = 0;
+  it("returns one page of 500, slim profiles, and whether more pages exist", async () => {
+    const full = Array.from({ length: 500 }, (_, i) => ({
+      id: `c${i}`,
+      status: "new",
+      p_name: `Naam ${i}`,
+      p_role: "CFO",
+      p_headline: null,
+      p_company: "Acme",
+      p_location: "Utrecht",
+    }));
     mock = makeSupabaseMock({
       workspaces: { data: { id: "w1" }, error: null },
-      candidates: () => ({ data: candidateCalls++ === 0 ? page1 : [{ id: "last" }], error: null }),
+      candidates: { data: full, error: null },
     });
     const res = mockRes();
-    await maybeLeads({ method: "GET", query: { view: "list", statuses: "new,rediscovered" } }, res);
+    await maybeLeads({ method: "GET", query: { view: "list", statuses: "new,rediscovered", page: "2" } }, res);
     expect(res.statusCode).toBe(200);
-    expect(res.body.candidates).toHaveLength(1001);
-    const q = mock.calls.filter((c) => c.table === "candidates");
-    expect(q).toHaveLength(2);
-    expect(ops(q[0], "in")[0]).toEqual(["in", "status", ["new", "rediscovered"]]);
-    expect(ops(q[1], "range")[0]).toEqual(["range", 1000, 1999]);
-    // Never pull the pgvector column.
-    expect(ops(q[0], "select")[0][1]).not.toContain("embedding");
+    expect(res.body.hasMore).toBe(true);
+    expect(res.body.candidates).toHaveLength(500);
+    expect(res.body.candidates[0]).toEqual({
+      id: "c0",
+      status: "new",
+      linkedin_profile: { name: "Naam 0", role: "CFO", headline: null, company: "Acme", location: "Utrecht" },
+    });
+    const q = mock.calls.find((c) => c.table === "candidates");
+    expect(ops(q, "in")[0]).toEqual(["in", "status", ["new", "rediscovered"]]);
+    expect(ops(q, "range")[0]).toEqual(["range", 1000, 1499]);
+    const select = ops(q, "select")[0][1];
+    // Never the full profile or the pgvector column.
+    expect(select).not.toMatch(/(^|,)linkedin_profile(,|$)/);
+    expect(select).toContain("p_name:linkedin_profile->>name");
+    expect(select).not.toContain("embedding");
+  });
+
+  it("reports the last page", async () => {
+    mock = makeSupabaseMock({
+      workspaces: { data: { id: "w1" }, error: null },
+      candidates: { data: [{ id: "c1" }], error: null },
+    });
+    const res = mockRes();
+    await maybeLeads({ method: "GET", query: { view: "list" } }, res);
+    expect(res.body.hasMore).toBe(false);
+    const q = mock.calls.find((c) => c.table === "candidates");
+    expect(ops(q, "range")[0]).toEqual(["range", 0, 499]);
   });
 
   it("strips PostgREST syntax from the search term", async () => {
@@ -54,10 +81,12 @@ describe("GET /api/maybe-leads?view=list", () => {
 
 describe("PATCH /api/maybe-leads?id=", () => {
   it("qualify clears the disqualify fields", async () => {
-    mock = makeSupabaseMock({ candidates: { data: { id: "c1", status: "qualified" }, error: null } });
+    mock = makeSupabaseMock({ candidates: { data: { id: "c1", status: "qualified", p_name: "Jan" }, error: null } });
     const res = mockRes();
     await maybeLeads({ method: "PATCH", query: { id: "c1" }, body: { action: "qualify" } }, res);
     expect(res.statusCode).toBe(200);
+    // Same slim shape as a list row.
+    expect(res.body.candidate).toEqual({ id: "c1", status: "qualified", linkedin_profile: { name: "Jan" } });
     const patch = ops(mock.calls[0], "update")[0][1];
     expect(patch).toMatchObject({ status: "qualified", disqualify_reason: null, qualified_by: "leadflow-user" });
     expect(ops(mock.calls[0], "eq")[0]).toEqual(["eq", "id", "c1"]);

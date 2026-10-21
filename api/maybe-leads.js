@@ -13,34 +13,49 @@ function serverSupabase() {
 const MAYBE_MIN = 40;
 const MAYBE_MAX = 55; // exclusive upper bound: [40, 55) === MAYBE 40-54 (GO >= 55)
 
-// Candidate list for the Leadfinder page (was a browser anon-key read). Every
-// column the UI needs minus `embedding`/`embedded_at` (1536-dim pgvector, makes
-// PostgREST 500 on large pages).
-const CANDIDATE_LIST_COLUMNS =
-  "id,linkedin_url,linkedin_profile,signal_type,signal_context,signal_history,pre_score,status,first_run_id,last_run_id,created_at,updated_at,workspace_id,disqualify_reason,disqualify_note,qualified_by,hubspot_contact_id,pushed_to_hubspot_at,pushed_by,exported_to_sheet_at,llm_score,llm_reasoning,llm_qualified_at,lookalike_search_id,lookalike_sim";
-const PAGE_SIZE = 1000;
+// Candidate list for the Leadfinder page (was a browser anon-key read). Two
+// limits shape it: Vercel caps a function response at 4.5 MB, and the full
+// `linkedin_profile` (experience, education, ... ) is ~5 KB per candidate (16 MB
+// for 3k rows). So: only the five profile fields the list shows, pulled out
+// with PostgREST JSON paths, and pages of 500 the client walks through.
+// `embedding`/`embedded_at` stay out (1536-dim pgvector).
+const PROFILE_FIELDS = ["name", "role", "headline", "company", "location"];
+const CANDIDATE_LIST_COLUMNS = [
+  "id,linkedin_url,signal_type,signal_context,signal_history,pre_score,status,first_run_id,last_run_id,created_at,updated_at,workspace_id,disqualify_reason,disqualify_note,qualified_by,hubspot_contact_id,pushed_to_hubspot_at,pushed_by,exported_to_sheet_at,llm_score,llm_reasoning,llm_qualified_at,lookalike_search_id,lookalike_sim",
+  ...PROFILE_FIELDS.map((f) => `p_${f}:linkedin_profile->>${f}`),
+].join(",");
+export const LIST_PAGE_SIZE = 500;
 
-async function listAllCandidates(supabase, workspaceId, { statuses, search }) {
-  const rows = [];
-  let from = 0;
-  while (true) {
-    let query = supabase.from("candidates").select(CANDIDATE_LIST_COLUMNS).eq("workspace_id", workspaceId);
-    if (statuses.length > 0) query = query.in("status", statuses);
-    if (search) {
-      // Strip PostgREST filter syntax characters so a search term cannot add clauses.
-      const needle = `%${search.replace(/[,()*%]/g, " ").trim()}%`;
-      query = query.or(
-        `linkedin_profile->>name.ilike.${needle},linkedin_profile->>role.ilike.${needle},linkedin_profile->>headline.ilike.${needle},linkedin_profile->>company.ilike.${needle}`,
-      );
-    }
-    const { data, error } = await query.order("pre_score", { ascending: false }).range(from, from + PAGE_SIZE - 1);
-    if (error) throw new Error(error.message);
-    const batch = data ?? [];
-    rows.push(...batch);
-    if (batch.length < PAGE_SIZE) break;
-    from += PAGE_SIZE;
+// Fold the p_* columns back into the linkedin_profile shape the UI expects.
+function withSlimProfile(row) {
+  const out = {};
+  const profile = {};
+  for (const [k, v] of Object.entries(row)) {
+    if (k.startsWith("p_")) profile[k.slice(2)] = v ?? null;
+    else out[k] = v;
   }
-  return rows;
+  out.linkedin_profile = profile;
+  return out;
+}
+
+async function listCandidatePage(supabase, workspaceId, { statuses, search, page }) {
+  let query = supabase.from("candidates").select(CANDIDATE_LIST_COLUMNS).eq("workspace_id", workspaceId);
+  if (statuses.length > 0) query = query.in("status", statuses);
+  if (search) {
+    // Strip PostgREST filter syntax characters so a search term cannot add clauses.
+    const needle = `%${search.replace(/[,()*%]/g, " ").trim()}%`;
+    query = query.or(
+      `linkedin_profile->>name.ilike.${needle},linkedin_profile->>role.ilike.${needle},linkedin_profile->>headline.ilike.${needle},linkedin_profile->>company.ilike.${needle}`,
+    );
+  }
+  const from = page * LIST_PAGE_SIZE;
+  const { data, error } = await query
+    .order("pre_score", { ascending: false })
+    .order("id", { ascending: true })
+    .range(from, from + LIST_PAGE_SIZE - 1);
+  if (error) throw new Error(error.message);
+  const rows = (data ?? []).map(withSlimProfile);
+  return { candidates: rows, hasMore: rows.length === LIST_PAGE_SIZE };
 }
 
 // PATCH ?id=<candidateId> { action: qualify | disqualify | reset, reason?, note? }
@@ -65,9 +80,9 @@ async function handler(req, res) {
     if (!ws.data) return res.status(404).json({ error: `Workspace "${slug}" not found` });
     const statuses = (req.query?.statuses || "").split(",").map((s) => s.trim()).filter(Boolean);
     const search = typeof req.query?.search === "string" ? req.query.search.trim() : "";
+    const page = Math.max(parseInt(req.query?.page, 10) || 0, 0);
     try {
-      const candidates = await listAllCandidates(supabase, ws.data.id, { statuses, search });
-      return res.status(200).json({ candidates });
+      return res.status(200).json(await listCandidatePage(supabase, ws.data.id, { statuses, search, page }));
     } catch (err) {
       return res.status(500).json({ error: err.message });
     }
@@ -83,11 +98,12 @@ async function handler(req, res) {
       .from("candidates")
       .update({ ...build(body), updated_at: new Date().toISOString() })
       .eq("id", id)
-      .select()
+      .select(CANDIDATE_LIST_COLUMNS)
       .maybeSingle();
     if (error) return res.status(500).json({ error: error.message });
     if (!data) return res.status(404).json({ error: "Candidate not found" });
-    return res.status(200).json({ candidate: data });
+    // Same shape as a list row, so the page can swap it in place.
+    return res.status(200).json({ candidate: withSlimProfile(data) });
   }
 
   if (req.method === "GET") {

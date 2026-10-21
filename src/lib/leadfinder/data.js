@@ -4,12 +4,18 @@ import { getJSON, sendJSON } from "../api.js";
 // session cookie required). The browser no longer talks to Supabase.
 const WORKSPACE_SLUG = "actuals";
 
+// The API serves the list in pages (Vercel caps a response at 4.5 MB); walk them.
 export async function listCandidates({ statuses, search } = {}) {
-  const params = new URLSearchParams({ view: "list", workspace: WORKSPACE_SLUG });
-  if (statuses && statuses.length > 0) params.set("statuses", statuses.join(","));
-  if (search && search.trim()) params.set("search", search.trim());
-  const { candidates } = await getJSON(`/api/maybe-leads?${params}`);
-  return candidates ?? [];
+  const rows = [];
+  for (let page = 0; ; page++) {
+    const params = new URLSearchParams({ view: "list", workspace: WORKSPACE_SLUG, page: String(page) });
+    if (statuses && statuses.length > 0) params.set("statuses", statuses.join(","));
+    if (search && search.trim()) params.set("search", search.trim());
+    const { candidates, hasMore } = await getJSON(`/api/maybe-leads?${params}`);
+    rows.push(...(candidates ?? []));
+    if (!hasMore) break;
+  }
+  return rows;
 }
 
 async function patchCandidate(id, body) {
